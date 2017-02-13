@@ -4,5 +4,7 @@ version = "0.1.0"
 authors = ["Daniël de Kok <me@danieldk.eu>"]
 
 [dependencies]
+flate2 = "0.2"
+fst = "0.1"
 getopts = "0.2"
 stdinout = "0.3"
