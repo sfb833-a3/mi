@@ -21,6 +21,7 @@ fn main() {
     let program = args[0].clone();
 
     let mut opts = Options::new();
+    opts.optopt("f", "freq", "minimum frequency cut-off", "N");
     opts.optflag("h", "help", "print this help menu");
 
     let matches = or_exit(opts.parse(&args[1..]));
@@ -29,6 +30,8 @@ fn main() {
         print_usage(&program, opts);
         process::exit(1)
     }
+
+    let cutoff = matches.opt_str("f").map(|v| or_exit(v.parse())).unwrap_or(1);
 
     if matches.free.len() > 2 {
         print_usage(&program, opts);
@@ -59,14 +62,14 @@ fn main() {
         collector.count(triple);
     }
 
-    collector.filter_freq(10);
-
-    for (triple, pmi) in collector.iter(MutualInformation::NSC) {
-        or_exit(writeln!(writer,
-                         "{} {} {} {}",
-                         word_map.word(triple[0]).unwrap(),
-                         word_map.word(triple[1]).unwrap(),
-                         word_map.word(triple[2]).unwrap(),
-                         pmi));
+    for (triple, freq, pmi) in collector.iter(MutualInformation::NSC) {
+        if freq >= cutoff {
+            or_exit(writeln!(writer,
+                             "{} {} {} {}",
+                             word_map.word(triple[0]).unwrap(),
+                             word_map.word(triple[1]).unwrap(),
+                             word_map.word(triple[2]).unwrap(),
+                             pmi));
+        }
     }
 }

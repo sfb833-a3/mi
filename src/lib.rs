@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::collections::hash_map;
 use std::fmt::Display;
 use std::hash::Hash;
-use std::mem;
 use std::process;
 
 mod bimap;
@@ -44,17 +43,6 @@ impl<T, V> Collector<T, V>
         *self.pair_counts.entry(tuple).or_insert(0) += 1;
     }
 
-    pub fn filter_freq(&mut self, cutoff: usize) {
-        let mut counts = HashMap::new();
-        mem::swap(&mut self.pair_counts, &mut counts);
-
-        for (pair, count) in counts {
-            if count >= cutoff {
-                self.pair_counts.insert(pair, count);
-            }
-        }
-    }
-
     pub fn iter(&self, mi: MutualInformation) -> Iter<T, V> {
         Iter {
             collector: self,
@@ -77,18 +65,18 @@ impl<'a, T, V> Iterator for Iter<'a, T, V>
     where T: AsRef<[V]> + Clone + Eq + Hash,
           V: Eq + Hash
 {
-    type Item = (&'a T, f64);
+    type Item = (&'a T, usize, f64);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|(tuple, pair_count)| {
+        self.inner.next().map(|(tuple, tuple_count)| {
 
             let mi = mutual_information(self.mi,
                                         &tuple,
-                                        *pair_count,
+                                        *tuple_count,
                                         &self.collector.counts,
                                         self.collector.freq);
 
-            (tuple, mi)
+            (tuple, *tuple_count, mi)
         })
     }
 }
