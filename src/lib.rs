@@ -5,26 +5,25 @@ use std::hash::Hash;
 use std::mem;
 use std::process;
 
-pub enum MutualInformation {
-    NPMI,
-    PMI,
-    PPMI,
-}
+mod bimap;
+pub use bimap::WordMap;
 
 #[derive(Clone, Copy)]
-pub enum Smoothing {
-    None,
-    Add(usize),
+pub enum MutualInformation {
+    NSC,
+    SC,
+    PSC,
 }
 
-pub struct Collector<T> {
-    counts: HashMap<T, usize>,
-    pair_counts: HashMap<(T, T), usize>,
+pub struct Collector<T, V> {
+    counts: HashMap<V, usize>,
+    pair_counts: HashMap<T, usize>,
     freq: usize,
 }
 
-impl<T> Collector<T>
-    where T: Clone + Eq + Hash
+impl<T, V> Collector<T, V>
+    where T: AsRef<[V]> + Clone + Eq + Hash,
+          V: Clone + Eq + Hash
 {
     pub fn new() -> Self {
         Collector {
@@ -34,11 +33,15 @@ impl<T> Collector<T>
         }
     }
 
-    pub fn count(&mut self, v1: T, v2: T) {
-        self.freq += 2;
-        *self.counts.entry(v1.clone()).or_insert(0) += 1;
-        *self.counts.entry(v2.clone()).or_insert(0) += 1;
-        *self.pair_counts.entry((v1, v2)).or_insert(0) += 1;
+    pub fn count(&mut self, tuple: T) {
+
+        for v in tuple.as_ref() {
+            self.freq += 1;
+            *self.counts.entry(v.clone()).or_insert(0) += 1;
+        }
+
+
+        *self.pair_counts.entry(tuple).or_insert(0) += 1;
     }
 
     pub fn filter_freq(&mut self, cutoff: usize) {
@@ -52,102 +55,96 @@ impl<T> Collector<T>
         }
     }
 
-    pub fn iter(&self, mi: MutualInformation, smoothing: Smoothing) -> Iter<T> {
+    pub fn iter(&self, mi: MutualInformation) -> Iter<T, V> {
         Iter {
             collector: self,
             inner: self.pair_counts.iter(),
             mi: mi,
-            smoothing: smoothing,
         }
-
     }
 }
 
-pub struct Iter<'a, T>
-    where T: 'a
+pub struct Iter<'a, T, V>
+    where T: 'a,
+          V: 'a
 {
-    collector: &'a Collector<T>,
-    inner: hash_map::Iter<'a, (T, T), usize>,
+    collector: &'a Collector<T, V>,
+    inner: hash_map::Iter<'a, T, usize>,
     mi: MutualInformation,
-    smoothing: Smoothing,
 }
 
-impl<'a, T> Iterator for Iter<'a, T>
-    where T: Eq + Hash
+impl<'a, T, V> Iterator for Iter<'a, T, V>
+    where T: AsRef<[V]> + Clone + Eq + Hash,
+          V: Eq + Hash
 {
-    type Item = ((&'a T, &'a T), f64);
+    type Item = (&'a T, f64);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|(&(ref v1, ref v2), pair_count)| {
+        self.inner.next().map(|(tuple, pair_count)| {
 
-            let mi = match self.mi {
-                MutualInformation::NPMI => {
-                    npmi(*pair_count,
-                         self.collector.counts[v1],
-                         self.collector.counts[v2],
-                         self.collector.freq,
-                         self.smoothing)
-                }
-                MutualInformation::PMI => {
-                    pmi(*pair_count,
-                        self.collector.counts[v1],
-                        self.collector.counts[v2],
-                        self.collector.freq,
-                        self.smoothing)
-                }
-                MutualInformation::PPMI => {
-                    ppmi(*pair_count,
-                         self.collector.counts[v1],
-                         self.collector.counts[v2],
-                         self.collector.freq,
-                         self.smoothing)
-                }
-            };
-            ((v1, v2), mi)
+            let mi = mutual_information(self.mi,
+                                        &tuple,
+                                        *pair_count,
+                                        &self.collector.counts,
+                                        self.collector.freq);
+
+            (tuple, mi)
         })
     }
 }
 
-fn npmi(pair_freq: usize,
-        v1_freq: usize,
-        v2_freq: usize,
-        freq: usize,
-        smoothing: Smoothing)
-        -> f64 {
-    let pmi = pmi(pair_freq, v1_freq, v2_freq, freq, smoothing);
-
-    let add = match smoothing {
-        Smoothing::None => 0,
-        Smoothing::Add(n) => n,
+fn mutual_information<T, V>(measure: MutualInformation,
+                            tuple: T,
+                            tuple_freq: usize,
+                            freqs: &HashMap<V, usize>,
+                            freq: usize)
+                            -> f64
+    where T: AsRef<[V]>,
+          V: Eq + Hash
+{
+    let f = match measure {
+        MutualInformation::NSC => nsc,
+        MutualInformation::SC => sc,
+        MutualInformation::PSC => psc,
     };
 
-    let pair_p = (pair_freq + add) as f64 / freq as f64;
-
-    pmi / -pair_p.ln()
+    f(tuple, tuple_freq, freqs, freq)
 }
 
-fn ppmi(pair_freq: usize,
-        v1_freq: usize,
-        v2_freq: usize,
-        freq: usize,
-        smoothing: Smoothing)
-        -> f64 {
-    let pmi = pmi(pair_freq, v1_freq, v2_freq, freq, smoothing);
+fn nsc<T, V>(tuple: T, tuple_freq: usize, freqs: &HashMap<V, usize>, freq: usize) -> f64
+    where T: AsRef<[V]>,
+          V: Eq + Hash
+{
+    let pmi = sc(tuple, tuple_freq, freqs, freq);
+
+    let pair_p = tuple_freq as f64 / freq as f64;
+
+    if pmi.is_sign_positive() {
+        pmi / (-2.0 * pair_p.ln())
+    } else {
+        pmi / -pair_p.ln()
+    }
+}
+
+fn psc<T, V>(tuple: T, tuple_freq: usize, freqs: &HashMap<V, usize>, freq: usize) -> f64
+    where T: AsRef<[V]>,
+          V: Eq + Hash
+{
+    let pmi = sc(tuple, tuple_freq, freqs, freq);
 
     if pmi < 0f64 { 0f64 } else { pmi }
 }
 
-fn pmi(pair_freq: usize, v1_freq: usize, v2_freq: usize, freq: usize, smoothing: Smoothing) -> f64 {
-    let add = match smoothing {
-        Smoothing::None => 0,
-        Smoothing::Add(n) => n,
-    };
+fn sc<T, V>(tuple: T, tuple_freq: usize, freqs: &HashMap<V, usize>, freq: usize) -> f64
+    where T: AsRef<[V]>,
+          V: Eq + Hash
+{
+    let pair_p = tuple_freq as f64 / freq as f64;
 
-    let pair_p = (pair_freq + add) as f64 / freq as f64;
-    let v1_p = (v1_freq + add) as f64 / freq as f64;
-    let v2_p = (v2_freq + add) as f64 / freq as f64;
+    let indep_p =
+        tuple.as_ref().iter().map(|v| freqs[v] as f64 / freq as f64).fold(1.0, |acc, v| acc * v);
 
-    (pair_p / (v1_p * v2_p)).ln()
+    (pair_p / indep_p).ln()
 }
 
 pub fn or_exit<T, E: Display>(r: Result<T, E>) -> T {

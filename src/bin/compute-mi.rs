@@ -41,23 +41,32 @@ fn main() {
     let output = Output::from(matches.free.get(1));
     let mut writer = BufWriter::new(or_exit(output.write()));
 
+    let mut word_map = WordMap::new();
     let mut collector = Collector::new();
 
     for line in reader.lines() {
         let line = or_exit(line);
 
-        let parts: Vec<_> = line.trim().split_whitespace().collect();
-        if parts.len() != 2 {
-            stderr!("Line without two columns: {}", line);
+        let parts: Vec<_> = line.trim().split_whitespace().map(|w| word_map.number(w)).collect();
+
+        if parts.len() != 3 {
+            stderr!("Line without three columns: {}", line);
             process::exit(1);
         }
 
-        collector.count(parts[0].to_owned(), parts[1].to_owned());
+        let triple = [parts[0].to_owned(), parts[1].to_owned(), parts[2].to_owned()];
+
+        collector.count(triple);
     }
 
-    collector.filter_freq(2);
+    collector.filter_freq(10);
 
-    for ((w1, w2), pmi) in collector.iter(MutualInformation::NPMI, Smoothing::Add(2)) {
-        or_exit(writeln!(writer, "{} {} {}", w1, w2, pmi));
+    for (triple, pmi) in collector.iter(MutualInformation::NSC) {
+        or_exit(writeln!(writer,
+                         "{} {} {} {}",
+                         word_map.word(triple[0]).unwrap(),
+                         word_map.word(triple[1]).unwrap(),
+                         word_map.word(triple[2]).unwrap(),
+                         pmi));
     }
 }
