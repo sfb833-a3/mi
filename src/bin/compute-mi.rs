@@ -1,4 +1,5 @@
 extern crate getopts;
+#[macro_use]
 extern crate mi;
 extern crate stdinout;
 
