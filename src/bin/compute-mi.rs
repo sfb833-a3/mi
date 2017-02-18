@@ -46,21 +46,20 @@ fn main() {
     let mut writer = BufWriter::new(or_exit(output.write()));
 
     let mut word_map = WordMap::new();
-    let mut collector = Collector::new();
+    let mut collector: Box<Collector<usize>> = Box::new(TupleCollector::new() as
+                                                        TupleCollector<[usize; 3], usize>);
 
     for line in reader.lines() {
         let line = or_exit(line);
 
-        let parts: Vec<_> = line.trim().split_whitespace().map(|w| word_map.number(w)).collect();
+        let triple: Vec<_> = line.trim().split_whitespace().map(|w| word_map.number(w)).collect();
 
-        if parts.len() != 3 {
+        if triple.len() != 3 {
             stderr!("Line without three columns: {}", line);
             process::exit(1);
         }
 
-        let triple = [parts[0].to_owned(), parts[1].to_owned(), parts[2].to_owned()];
-
-        collector.count(triple);
+        collector.count(&triple);
     }
 
     for (triple, freq, pmi) in collector.iter(MutualInformation::NSC) {

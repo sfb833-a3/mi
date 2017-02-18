@@ -14,25 +14,66 @@ pub enum MutualInformation {
     PSC,
 }
 
-pub struct Collector<T, V> {
+pub trait Collector<V> {
+    fn count(&mut self, slice: &[V]);
+
+    fn iter<'a>(&'a self,
+                mi: MutualInformation)
+                -> Box<Iterator<Item = (&'a [V], usize, f64)> + 'a>;
+}
+
+pub struct TupleCollector<T, V> {
     counts: HashMap<V, usize>,
     pair_counts: HashMap<T, usize>,
     freq: usize,
 }
 
-impl<T, V> Collector<T, V>
+impl<T, V> Collector<V> for TupleCollector<T, V>
+    where T: AsMut<[V]> + AsRef<[V]> + Clone + Default + Eq + Hash,
+          V: Clone + Eq + Hash
+{
+    fn count(&mut self, slice: &[V]) {
+        let mut tuple = T::default();
+
+        {
+            let mut tuple_ref = tuple.as_mut();
+
+            if tuple_ref.len() != slice.len() {
+                panic!("Attempting to add slice of size {} to collector of size {}",
+                       slice.len(),
+                       tuple_ref.len());
+            }
+
+            tuple_ref.clone_from_slice(slice);
+        }
+
+        self.count_tuple(tuple);
+    }
+
+    fn iter<'a>(&'a self,
+                mi: MutualInformation)
+                -> Box<Iterator<Item = (&'a [V], usize, f64)> + 'a> {
+        Box::new(Iter {
+            collector: self,
+            inner: self.pair_counts.iter(),
+            mi: mi,
+        })
+    }
+}
+
+impl<T, V> TupleCollector<T, V>
     where T: AsRef<[V]> + Clone + Eq + Hash,
           V: Clone + Eq + Hash
 {
     pub fn new() -> Self {
-        Collector {
+        TupleCollector {
             freq: 0,
             counts: HashMap::new(),
             pair_counts: HashMap::new(),
         }
     }
 
-    pub fn count(&mut self, tuple: T) {
+    fn count_tuple(&mut self, tuple: T) {
 
         for v in tuple.as_ref() {
             self.freq += 1;
@@ -42,21 +83,13 @@ impl<T, V> Collector<T, V>
 
         *self.pair_counts.entry(tuple).or_insert(0) += 1;
     }
-
-    pub fn iter(&self, mi: MutualInformation) -> Iter<T, V> {
-        Iter {
-            collector: self,
-            inner: self.pair_counts.iter(),
-            mi: mi,
-        }
-    }
 }
 
 pub struct Iter<'a, T, V>
     where T: 'a,
           V: 'a
 {
-    collector: &'a Collector<T, V>,
+    collector: &'a TupleCollector<T, V>,
     inner: hash_map::Iter<'a, T, usize>,
     mi: MutualInformation,
 }
@@ -65,7 +98,7 @@ impl<'a, T, V> Iterator for Iter<'a, T, V>
     where T: AsRef<[V]> + Clone + Eq + Hash,
           V: Eq + Hash
 {
-    type Item = (&'a T, usize, f64);
+    type Item = (&'a [V], usize, f64);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|(tuple, tuple_count)| {
@@ -76,7 +109,7 @@ impl<'a, T, V> Iterator for Iter<'a, T, V>
                                         &self.collector.counts,
                                         self.collector.freq);
 
-            (tuple, *tuple_count, mi)
+            (tuple.as_ref(), *tuple_count, mi)
         })
     }
 }
