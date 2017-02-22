@@ -136,12 +136,14 @@ fn nsc<T, V>(tuple: T, tuple_freq: usize, freqs: &HashMap<V, usize>, freq: usize
     where T: AsRef<[V]>,
           V: Eq + Hash
 {
+    let tuple_len = tuple.as_ref().len();
+
     let pmi = sc(tuple, tuple_freq, freqs, freq);
 
     let pair_p = tuple_freq as f64 / freq as f64;
 
     if pmi.is_sign_positive() {
-        pmi / (-2.0 * pair_p.ln())
+        pmi / (-((tuple_len - 1) as f64) * pair_p.ln())
     } else {
         pmi / -pair_p.ln()
     }
