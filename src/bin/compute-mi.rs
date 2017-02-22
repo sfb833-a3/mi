@@ -1,4 +1,8 @@
 extern crate getopts;
+
+#[macro_use]
+extern crate itertools;
+
 #[macro_use]
 extern crate mi;
 extern crate stdinout;
@@ -8,12 +12,13 @@ use std::io::{BufRead, BufWriter, Write};
 use std::process;
 
 use getopts::Options;
+use itertools::Itertools;
 use stdinout::*;
 
 use mi::*;
 
 fn print_usage(program: &str, opts: Options) {
-    let brief = format!("Usage: {} [options] EMBEDDINGS", program);
+    let brief = format!("Usage: {} [options] VARS INPUT OUTPUT", program);
     print!("{}", opts.usage(&brief));
 }
 
@@ -34,41 +39,42 @@ fn main() {
 
     let cutoff = matches.opt_str("f").map(|v| or_exit(v.parse())).unwrap_or(1);
 
-    if matches.free.len() > 2 {
+    if matches.free.len() == 0 || matches.free.len() > 3 {
         print_usage(&program, opts);
         process::exit(1)
     }
 
-    let input = Input::from(matches.free.get(0));
+    let n_vars = or_exit(matches.free[0].parse());
+
+    let input = Input::from(matches.free.get(1));
     let reader = or_exit(input.buf_read());
 
-    let output = Output::from(matches.free.get(1));
+    let output = Output::from(matches.free.get(2));
     let mut writer = BufWriter::new(or_exit(output.write()));
 
     let mut word_map = WordMap::new();
-    let mut collector: Box<Collector<usize>> = Box::new(TupleCollector::new() as
-                                                        TupleCollector<[usize; 3], usize>);
+    let mut collector: Box<Collector<usize>> = match n_vars {
+        2 => Box::new(TupleCollector::new() as TupleCollector<[usize; 2], usize>),
+        3 => Box::new(TupleCollector::new() as TupleCollector<[usize; 3], usize>),
+        _ => {
+            stderr!("Cannot handle {} variables", n_vars);
+            process::exit(1);
+        }
+    };
 
     for line in reader.lines() {
         let line = or_exit(line);
 
-        let triple: Vec<_> = line.trim().split_whitespace().map(|w| word_map.number(w)).collect();
+        let tuple: Vec<_> = line.trim().split_whitespace().map(|w| word_map.number(w)).collect();
 
-        if triple.len() != 3 {
-            stderr!("Line without three columns: {}", line);
-            process::exit(1);
-        }
-
-        collector.count(&triple);
+        collector.count(&tuple);
     }
 
-    for (triple, freq, pmi) in collector.iter(MutualInformation::NSC) {
+    for (tuple, freq, pmi) in collector.iter(MutualInformation::NSC) {
         if freq >= cutoff {
             or_exit(writeln!(writer,
-                             "{} {} {} {}",
-                             word_map.word(triple[0]).unwrap(),
-                             word_map.word(triple[1]).unwrap(),
-                             word_map.word(triple[2]).unwrap(),
+                             "{} {}",
+                             tuple.iter().map(|&w| word_map.word(w).unwrap()).join(" "),
                              pmi));
         }
     }

@@ -6,4 +6,5 @@ authors = ["Daniël de Kok <me@danieldk.eu>"]
 [dependencies]
 flate2 = "0.2"
 getopts = "0.2"
+itertools = "0.5"
 stdinout = "0.3"
