@@ -57,11 +57,10 @@ impl<T, V> Collector<V> for TupleCollector<T, V>
         {
             let mut tuple_ref = tuple.as_mut();
 
-            if tuple_ref.len() != slice.len() {
-                panic!("Attempting to add slice of size {} to collector of size {}",
-                       slice.len(),
-                       tuple_ref.len());
-            }
+            assert!(tuple_ref.len() == slice.len(),
+                    format!("Attempting to add slice of size {} to collector of size {}",
+                            slice.len(),
+                            tuple_ref.len()));
 
             tuple_ref.clone_from_slice(slice);
         }
