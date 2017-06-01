@@ -1,6 +1,5 @@
 extern crate getopts;
 
-#[macro_use]
 extern crate itertools;
 
 #[macro_use]
@@ -13,6 +12,7 @@ use std::process;
 
 use getopts::Options;
 use itertools::Itertools;
+use mi::OrExit;
 use stdinout::*;
 
 use mi::*;
@@ -30,27 +30,28 @@ fn main() {
     opts.optopt("f", "freq", "minimum frequency cut-off", "N");
     opts.optflag("h", "help", "print this help menu");
 
-    let matches = or_exit(opts.parse(&args[1..]));
+    let matches = opts.parse(&args[1..]).or_exit("Cannot parse arguments");
 
     if matches.opt_present("h") {
         print_usage(&program, opts);
         process::exit(1)
     }
 
-    let cutoff = matches.opt_str("f").map(|v| or_exit(v.parse())).unwrap_or(1);
+    let cutoff =
+        matches.opt_str("f").map(|v| v.parse().or_exit("Cannot parse frequency")).unwrap_or(1);
 
     if matches.free.len() == 0 || matches.free.len() > 3 {
         print_usage(&program, opts);
         process::exit(1)
     }
 
-    let n_vars = or_exit(matches.free[0].parse());
+    let n_vars = matches.free[0].parse().or_exit("Cannot parse number of variables");
 
     let input = Input::from(matches.free.get(1));
-    let reader = or_exit(input.buf_read());
+    let reader = input.buf_read().or_exit("Cannot open reader");
 
     let output = Output::from(matches.free.get(2));
-    let mut writer = BufWriter::new(or_exit(output.write()));
+    let mut writer = BufWriter::new(output.write().or_exit("Cannot open writer"));
 
     let mut word_map = WordMap::new();
     let mut collector: Box<Collector<usize>> = match n_vars {
@@ -63,7 +64,7 @@ fn main() {
     };
 
     for line in reader.lines() {
-        let line = or_exit(line);
+        let line = line.or_exit("Cannot extract line from input");
 
         let tuple: Vec<_> = line.trim().split_whitespace().map(|w| word_map.number(w)).collect();
 
@@ -72,10 +73,11 @@ fn main() {
 
     for (tuple, freq, pmi) in collector.iter(MutualInformation::NSC) {
         if freq >= cutoff {
-            or_exit(writeln!(writer,
-                             "{} {}",
-                             tuple.iter().map(|&w| word_map.word(w).unwrap()).join(" "),
-                             pmi));
+            writeln!(writer,
+                     "{} {}",
+                     tuple.iter().map(|&w| word_map.word(w).unwrap()).join(" "),
+                     pmi)
+                .or_exit("Cannot write MI to output");
         }
     }
 }

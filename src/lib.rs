@@ -7,6 +7,25 @@ use std::process;
 mod bimap;
 pub use bimap::WordMap;
 
+pub trait OrExit {
+    type RetVal;
+
+    fn or_exit(self, msg: &str) -> Self::RetVal;
+}
+
+impl<T, E> OrExit for Result<T, E>
+    where E: Display
+{
+    type RetVal = T;
+
+    fn or_exit(self, msg: &str) -> Self::RetVal {
+        self.unwrap_or_else(|e: E| -> T {
+            println!("{}: {}", msg, e);
+            process::exit(1)
+        })
+    }
+}
+
 #[derive(Clone, Copy)]
 pub enum MutualInformation {
     NSC,
@@ -168,13 +187,6 @@ fn sc<T, V>(tuple: T, tuple_freq: usize, freqs: &HashMap<V, usize>, freq: usize)
         tuple.as_ref().iter().map(|v| freqs[v] as f64 / freq as f64).fold(1.0, |acc, v| acc * v);
 
     (pair_p / indep_p).ln()
-}
-
-pub fn or_exit<T, E: Display>(r: Result<T, E>) -> T {
-    r.unwrap_or_else(|e: E| -> T {
-        println!("Error: {}", e);
-        process::exit(1)
-    })
 }
 
 #[macro_export]
