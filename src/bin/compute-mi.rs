@@ -7,12 +7,13 @@ extern crate mi;
 extern crate stdinout;
 
 use std::env::args;
+use std::hash::Hash;
 use std::io::{BufRead, BufWriter, Write};
 use std::process;
 
 use getopts::Options;
 use itertools::Itertools;
-use mi::OrExit;
+use mi::{OrExit, SpecificCorrelation};
 use stdinout::*;
 
 use mi::*;
@@ -22,12 +23,31 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
+fn measure_from_str<V>(measure_str: &str) -> Box<MutualInformation<V>>
+    where V: 'static + Eq + Hash
+{
+    match measure_str {
+        "sc" => Box::new(SpecificCorrelation::new(false)),
+        "nsc" => Box::new(SpecificCorrelation::new(true)),
+        "psc" => Box::new(PositiveMutualInformation::new(SpecificCorrelation::new(false))),
+        "pnsc" => Box::new(PositiveMutualInformation::new(SpecificCorrelation::new(true))),
+        _ => {
+            stderr!("Unknown mutual information measure: {}", measure_str);
+            process::exit(1);
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = args().collect();
     let program = args[0].clone();
 
     let mut opts = Options::new();
     opts.optopt("f", "freq", "minimum frequency cut-off", "N");
+    opts.optopt("m",
+                "measure",
+                "mutual information measure: sc, nsc, psc, or pnsc (default: sc)",
+                "MEASURE");
     opts.optflag("h", "help", "print this help menu");
 
     let matches = opts.parse(&args[1..]).or_exit("Cannot parse arguments");
@@ -39,6 +59,8 @@ fn main() {
 
     let cutoff =
         matches.opt_str("f").map(|v| v.parse().or_exit("Cannot parse frequency")).unwrap_or(1);
+
+    let measure = measure_from_str(&matches.opt_str("m").unwrap_or("sc".to_owned()));
 
     if matches.free.len() == 0 || matches.free.len() > 3 {
         print_usage(&program, opts);
@@ -71,7 +93,7 @@ fn main() {
         collector.count(&tuple);
     }
 
-    for (tuple, freq, pmi) in collector.iter(MutualInformation::NSC) {
+    for (tuple, freq, pmi) in collector.iter(measure.as_ref()) {
         if freq >= cutoff {
             writeln!(writer,
                      "{} {}",
