@@ -6,6 +6,7 @@ extern crate itertools;
 extern crate mi;
 extern crate stdinout;
 
+use std::collections::HashSet;
 use std::env::args;
 use std::hash::Hash;
 use std::io::{BufRead, BufWriter, Write};
@@ -38,6 +39,23 @@ fn measure_from_str<V>(measure_str: &str) -> Box<MutualInformation<V>>
     }
 }
 
+fn parse_indices(indices_str: &str) -> HashSet<usize> {
+    let mut indices = HashSet::new();
+
+    for part in indices_str.split(',') {
+        let idx: usize = part.parse().or_exit("Cannot parse index");
+
+        if idx == 0 {
+            stderr!("Bad index: variable argument uses 1-based indexing");
+            process::exit(1);
+        }
+
+        indices.insert(idx - 1);
+    }
+
+    indices
+}
+
 fn main() {
     let args: Vec<String> = args().collect();
     let program = args[0].clone();
@@ -67,7 +85,7 @@ fn main() {
         process::exit(1)
     }
 
-    let n_vars = matches.free[0].parse().or_exit("Cannot parse number of variables");
+    let indices = parse_indices(&matches.free[0]);
 
     let input = Input::from(matches.free.get(1));
     let reader = input.buf_read().or_exit("Cannot open reader");
@@ -76,19 +94,26 @@ fn main() {
     let mut writer = BufWriter::new(output.write().or_exit("Cannot open writer"));
 
     let mut word_map = WordMap::new();
-    let mut collector: Box<Collector<usize>> = match n_vars {
+    let mut collector: Box<Collector<usize>> = match indices.len() {
         2 => Box::new(TupleCollector::new() as TupleCollector<[usize; 2], usize>),
         3 => Box::new(TupleCollector::new() as TupleCollector<[usize; 3], usize>),
         _ => {
-            stderr!("Cannot handle {} variables", n_vars);
+            stderr!("Cannot handle {} variable(s)", indices.len());
             process::exit(1);
         }
     };
 
+    let mut tuple = Vec::with_capacity(indices.len());
+
     for line in reader.lines() {
         let line = line.or_exit("Cannot extract line from input");
 
-        let tuple: Vec<_> = line.trim().split_whitespace().map(|w| word_map.number(w)).collect();
+        tuple.clear();
+        for (idx, column) in line.trim().split_whitespace().enumerate() {
+            if indices.contains(&idx) {
+                tuple.push(word_map.number(column))
+            }
+        }
 
         collector.count(&tuple);
     }
