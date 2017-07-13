@@ -4,14 +4,17 @@ use std::marker::PhantomData;
 
 /// Trait for mutual information measures.
 pub trait MutualInformation<V>
-    where V: Eq + Hash
+where
+    V: Eq + Hash,
 {
-    fn mutual_information(&self,
-                          tuple: &[V],
-                          tuple_freq: usize,
-                          freqs: &HashMap<V, usize>,
-                          freq: usize)
-                          -> f64;
+    fn mutual_information(
+        &self,
+        tuple: &[V],
+        event_freqs: &[HashMap<V, usize>],
+        event_sums: &[usize],
+        joint_freq: usize,
+        joint_sum: usize,
+    ) -> f64;
 }
 
 /// Specific correlation (Van de Cruys, 2011)
@@ -32,24 +35,27 @@ impl SpecificCorrelation {
 }
 
 impl<V> MutualInformation<V> for SpecificCorrelation
-    where V: Eq + Hash
+where
+    V: Eq + Hash,
 {
-    fn mutual_information(&self,
-                          tuple: &[V],
-                          tuple_freq: usize,
-                          freqs: &HashMap<V, usize>,
-                          freq: usize)
-                          -> f64 {
+    fn mutual_information(
+        &self,
+        tuple: &[V],
+        event_freqs: &[HashMap<V, usize>],
+        event_sums: &[usize],
+        joint_freq: usize,
+        joint_sum: usize,
+    ) -> f64 {
         let tuple_len = tuple.as_ref().len();
-        let pmi = sc(tuple, tuple_freq, freqs, freq);
+        let pmi = sc(tuple, event_freqs, event_sums, joint_freq, joint_sum);
 
         if self.normalize {
-            let pair_p = tuple_freq as f64 / freq as f64;
+            let tuple_p = joint_freq as f64 / joint_sum as f64;
 
             if pmi.is_sign_positive() {
-                pmi / (-((tuple_len - 1) as f64) * pair_p.ln())
+                pmi / (-((tuple_len - 1) as f64) * tuple_p.ln())
             } else {
-                pmi / -pair_p.ln()
+                pmi / -tuple_p.ln()
             }
         } else {
             pmi
@@ -62,16 +68,18 @@ impl<V> MutualInformation<V> for SpecificCorrelation
 /// This function is a simple wrapper around anouther mutual information
 /// function that will 'round' negative mutual information to *0*.
 pub struct PositiveMutualInformation<M, V>
-    where M: MutualInformation<V>,
-          V: Eq + Hash
+where
+    M: MutualInformation<V>,
+    V: Eq + Hash,
 {
     mi: M,
     tuple_value_type: PhantomData<V>,
 }
 
 impl<M, V> PositiveMutualInformation<M, V>
-    where M: MutualInformation<V>,
-          V: Eq + Hash
+where
+    M: MutualInformation<V>,
+    V: Eq + Hash,
 {
     pub fn new(mi: M) -> Self {
         PositiveMutualInformation {
@@ -82,27 +90,49 @@ impl<M, V> PositiveMutualInformation<M, V>
 }
 
 impl<M, V> MutualInformation<V> for PositiveMutualInformation<M, V>
-    where M: MutualInformation<V>,
-          V: Eq + Hash
+where
+    M: MutualInformation<V>,
+    V: Eq + Hash,
 {
-    fn mutual_information(&self,
-                          tuple: &[V],
-                          tuple_freq: usize,
-                          freqs: &HashMap<V, usize>,
-                          freq: usize)
-                          -> f64 {
-        let score = self.mi.mutual_information(tuple, tuple_freq, freqs, freq);
+    fn mutual_information(
+        &self,
+        tuple: &[V],
+        event_freqs: &[HashMap<V, usize>],
+        event_sums: &[usize],
+        joint_freq: usize,
+        joint_sum: usize,
+    ) -> f64 {
+        let score = self.mi.mutual_information(
+            tuple,
+            event_freqs,
+            event_sums,
+            joint_freq,
+            joint_sum,
+        );
         if score < 0f64 { 0f64 } else { score }
     }
 }
 
-fn sc<V>(tuple: &[V], tuple_freq: usize, freqs: &HashMap<V, usize>, freq: usize) -> f64
-    where V: Eq + Hash
+fn sc<V>(
+    tuple: &[V],
+    event_freqs: &[HashMap<V, usize>],
+    event_sums: &[usize],
+    joint_freq: usize,
+    joint_sum: usize,
+) -> f64
+where
+    V: Eq + Hash,
 {
-    let pair_p = tuple_freq as f64 / freq as f64;
+    let tuple_p = joint_freq as f64 / joint_sum as f64;
 
-    let indep_p =
-        tuple.as_ref().iter().map(|v| freqs[v] as f64 / freq as f64).fold(1.0, |acc, v| acc * v);
+    let indep_p = tuple
+        .as_ref()
+        .iter()
+        .enumerate()
+        .map(|(idx, v)| {
+            event_freqs[idx][v] as f64 / event_sums[idx] as f64
+        })
+        .fold(1.0, |acc, v| acc * v);
 
-    (pair_p / indep_p).ln()
+    (tuple_p / indep_p).ln()
 }
