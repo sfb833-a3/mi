@@ -25,13 +25,18 @@ fn print_usage(program: &str, opts: Options) {
 }
 
 fn measure_from_str<V>(measure_str: &str) -> Box<MutualInformation<V>>
-    where V: 'static + Eq + Hash
+where
+    V: 'static + Eq + Hash,
 {
     match measure_str {
         "sc" => Box::new(SpecificCorrelation::new(false)),
         "nsc" => Box::new(SpecificCorrelation::new(true)),
-        "psc" => Box::new(PositiveMutualInformation::new(SpecificCorrelation::new(false))),
-        "pnsc" => Box::new(PositiveMutualInformation::new(SpecificCorrelation::new(true))),
+        "psc" => Box::new(PositiveMutualInformation::new(
+            SpecificCorrelation::new(false),
+        )),
+        "pnsc" => Box::new(PositiveMutualInformation::new(
+            SpecificCorrelation::new(true),
+        )),
         _ => {
             stderr!("Unknown mutual information measure: {}", measure_str);
             process::exit(1);
@@ -62,10 +67,12 @@ fn main() {
 
     let mut opts = Options::new();
     opts.optopt("f", "freq", "minimum frequency cut-off", "N");
-    opts.optopt("m",
-                "measure",
-                "mutual information measure: sc, nsc, psc, or pnsc (default: sc)",
-                "MEASURE");
+    opts.optopt(
+        "m",
+        "measure",
+        "mutual information measure: sc, nsc, psc, or pnsc (default: sc)",
+        "MEASURE",
+    );
     opts.optflag("h", "help", "print this help menu");
 
     let matches = opts.parse(&args[1..]).or_exit("Cannot parse arguments");
@@ -75,8 +82,10 @@ fn main() {
         process::exit(1)
     }
 
-    let cutoff =
-        matches.opt_str("f").map(|v| v.parse().or_exit("Cannot parse frequency")).unwrap_or(1);
+    let cutoff = matches
+        .opt_str("f")
+        .map(|v| v.parse().or_exit("Cannot parse frequency"))
+        .unwrap_or(1);
 
     let measure = measure_from_str(&matches.opt_str("m").unwrap_or("sc".to_owned()));
 
@@ -120,11 +129,12 @@ fn main() {
 
     for (tuple, freq, pmi) in collector.iter(measure.as_ref()) {
         if freq >= cutoff {
-            writeln!(writer,
-                     "{} {}",
-                     tuple.iter().map(|&w| word_map.word(w).unwrap()).join(" "),
-                     pmi)
-                .or_exit("Cannot write MI to output");
+            writeln!(
+                writer,
+                "{} {}",
+                tuple.iter().map(|&w| word_map.word(w).unwrap()).join(" "),
+                pmi
+            ).or_exit("Cannot write MI to output");
         }
     }
 }

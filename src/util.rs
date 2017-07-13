@@ -17,7 +17,8 @@ pub trait OrExit {
 }
 
 impl<T, E> OrExit for Result<T, E>
-    where E: Display
+where
+    E: Display,
 {
     type RetVal = T;
 
