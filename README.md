@@ -41,7 +41,6 @@ cargo install
 
 in the main directory. Afterwards, `compute-mi` should be in your path.
 
-
 ## Usage
 
 The basic usage of `compute-mi` is:
@@ -59,3 +58,19 @@ This is an example run using two variables:
 ~~~{.bash}
 zcat < taz-obja-words.gz | target/release/compute-mi -m nsc 1,2
 ~~~
+
+## Caveats
+
+### Double counting of events
+
+The events in each joint event (line in the input) are considered to be
+unique occurrences.  E.g. if we are computing specific correlations on
+triples of head-prep-prep_obj:
+
+~~~
+walk on pavement
+walk in city
+~~~
+
+*walk* will be counted twice, although it may actually be a single token
+which has the two dependents *on* and *in*.
