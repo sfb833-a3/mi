@@ -5,5 +5,5 @@ authors = ["Daniël de Kok <me@danieldk.eu>"]
 
 [dependencies]
 getopts = "0.2"
-itertools = "0.6"
+itertools = "0.7"
 stdinout = "0.4"
