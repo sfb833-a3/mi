@@ -13,8 +13,8 @@ use std::process;
 
 use getopts::Options;
 use itertools::Itertools;
-use mi::{OrExit, SpecificCorrelation};
-use stdinout::*;
+use mi::SpecificCorrelation;
+use stdinout::{Input, Output, OrExit};
 
 use mi::*;
 
@@ -47,7 +47,7 @@ fn parse_indices(indices_str: &str) -> HashSet<usize> {
     let mut indices = HashSet::new();
 
     for part in indices_str.split(',') {
-        let idx: usize = part.parse().or_exit("Cannot parse index");
+        let idx: usize = part.parse().or_exit("Cannot parse index", 1);
 
         if idx == 0 {
             eprintln!("Bad index: variable argument uses 1-based indexing");
@@ -74,7 +74,7 @@ fn main() {
     );
     opts.optflag("h", "help", "print this help menu");
 
-    let matches = opts.parse(&args[1..]).or_exit("Cannot parse arguments");
+    let matches = opts.parse(&args[1..]).or_exit("Cannot parse arguments", 1);
 
     if matches.opt_present("h") {
         print_usage(&program, opts);
@@ -83,7 +83,7 @@ fn main() {
 
     let cutoff = matches
         .opt_str("f")
-        .map(|v| v.parse().or_exit("Cannot parse frequency"))
+        .map(|v| v.parse().or_exit("Cannot parse frequency", 1))
         .unwrap_or(1);
 
     let measure = measure_from_str(&matches.opt_str("m").unwrap_or("sc".to_owned()));
@@ -96,10 +96,10 @@ fn main() {
     let indices = parse_indices(&matches.free[0]);
 
     let input = Input::from(matches.free.get(1));
-    let reader = input.buf_read().or_exit("Cannot open reader");
+    let reader = input.buf_read().or_exit("Cannot open reader", 1);
 
     let output = Output::from(matches.free.get(2));
-    let mut writer = BufWriter::new(output.write().or_exit("Cannot open writer"));
+    let mut writer = BufWriter::new(output.write().or_exit("Cannot open writer", 1));
 
     let mut word_map = WordMap::new();
     let mut collector: Box<Collector<usize>> = match indices.len() {
@@ -114,7 +114,7 @@ fn main() {
     let mut tuple = Vec::with_capacity(indices.len());
 
     for line in reader.lines() {
-        let line = line.or_exit("Cannot extract line from input");
+        let line = line.or_exit("Cannot extract line from input", 1);
 
         tuple.clear();
         for (idx, column) in line.trim().split_whitespace().enumerate() {
@@ -133,7 +133,7 @@ fn main() {
                 "{} {}",
                 tuple.iter().map(|&w| word_map.word(w).unwrap()).join(" "),
                 pmi
-            ).or_exit("Cannot write MI to output");
+            ).or_exit("Cannot write MI to output", 1);
         }
     }
 }
