@@ -49,7 +49,7 @@ where
         let mut tuple = T::default();
 
         {
-            let mut tuple_ref = tuple.as_mut();
+            let tuple_ref = tuple.as_mut();
 
             assert!(
                 tuple_ref.len() == slice.as_ref().len(),
