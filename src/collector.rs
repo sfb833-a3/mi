@@ -37,12 +37,7 @@ pub struct TupleCollector<T, V> {
 /// and third position.
 impl<T, V> Collector<V> for TupleCollector<T, V>
 where
-    T: AsMut<[V]>
-        + AsRef<[V]>
-        + Clone
-        + Default
-        + Eq
-        + Hash,
+    T: AsMut<[V]> + AsRef<[V]> + Clone + Default + Eq + Hash,
     V: Clone + Eq + Hash,
 {
     fn count(&mut self, slice: &[V]) {
@@ -96,7 +91,6 @@ where
     }
 
     fn count_tuple(&mut self, tuple: T) {
-
         for (idx, v) in tuple.as_ref().iter().enumerate() {
             *self.event_freqs[idx].entry(v.clone()).or_insert(0) += 1;
             self.event_sums[idx] += 1;
@@ -126,7 +120,6 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|(tuple, tuple_count)| {
-
             let mi = self.mi.mutual_information(
                 tuple.as_ref(),
                 &self.collector.event_freqs,

@@ -21,9 +21,8 @@ impl WordMap {
                 let v = e.insert(self.words.len());
                 self.words.push(word.to_owned());
                 *v
-            } 
+            }
         }
-
     }
 
     pub fn word(&self, n: usize) -> Option<&str> {

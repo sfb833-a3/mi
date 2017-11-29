@@ -14,7 +14,7 @@ use std::process;
 use getopts::Options;
 use itertools::Itertools;
 use mi::SpecificCorrelation;
-use stdinout::{Input, Output, OrExit};
+use stdinout::{Input, OrExit, Output};
 
 use mi::*;
 

@@ -30,7 +30,9 @@ impl SpecificCorrelation {
     ///
     /// If normalization is enable, the result will lie between -1 and 1.
     pub fn new(normalize: bool) -> Self {
-        SpecificCorrelation { normalize: normalize }
+        SpecificCorrelation {
+            normalize: normalize,
+        }
     }
 }
 
@@ -102,14 +104,14 @@ where
         joint_freq: usize,
         joint_sum: usize,
     ) -> f64 {
-        let score = self.mi.mutual_information(
-            tuple,
-            event_freqs,
-            event_sums,
-            joint_freq,
-            joint_sum,
-        );
-        if score < 0f64 { 0f64 } else { score }
+        let score =
+            self.mi
+                .mutual_information(tuple, event_freqs, event_sums, joint_freq, joint_sum);
+        if score < 0f64 {
+            0f64
+        } else {
+            score
+        }
     }
 }
 
