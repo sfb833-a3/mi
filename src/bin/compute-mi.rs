@@ -2,7 +2,6 @@ extern crate getopts;
 
 extern crate itertools;
 
-#[macro_use]
 extern crate mi;
 extern crate stdinout;
 
@@ -38,7 +37,7 @@ where
             SpecificCorrelation::new(true),
         )),
         _ => {
-            stderr!("Unknown mutual information measure: {}", measure_str);
+            eprintln!("Unknown mutual information measure: {}", measure_str);
             process::exit(1);
         }
     }
@@ -51,7 +50,7 @@ fn parse_indices(indices_str: &str) -> HashSet<usize> {
         let idx: usize = part.parse().or_exit("Cannot parse index");
 
         if idx == 0 {
-            stderr!("Bad index: variable argument uses 1-based indexing");
+            eprintln!("Bad index: variable argument uses 1-based indexing");
             process::exit(1);
         }
 
@@ -107,7 +106,7 @@ fn main() {
         2 => Box::new(TupleCollector::new() as TupleCollector<[usize; 2], usize>),
         3 => Box::new(TupleCollector::new() as TupleCollector<[usize; 3], usize>),
         _ => {
-            stderr!("Cannot handle {} variable(s)", indices.len());
+            eprintln!("Cannot handle {} variable(s)", indices.len());
             process::exit(1);
         }
     };

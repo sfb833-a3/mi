@@ -1,14 +1,5 @@
 use std::fmt::Display;
-use std::io::Write;
 use std::process;
-
-#[macro_export]
-macro_rules! stderr(
-    ($($arg:tt)*) => { {
-        let r = writeln!(&mut ::std::io::stderr(), $($arg)*);
-        r.expect("failed printing to stderr");
-    } }
-);
 
 pub trait OrExit {
     type RetVal;
@@ -24,7 +15,7 @@ where
 
     fn or_exit(self, msg: &str) -> Self::RetVal {
         self.unwrap_or_else(|e: E| -> T {
-            stderr!("{}: {}", msg, e);
+            eprintln!("{}: {}", msg, e);
             process::exit(1)
         })
     }
