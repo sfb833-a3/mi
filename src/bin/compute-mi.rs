@@ -73,6 +73,7 @@ fn main() {
         "MEASURE",
     );
     opts.optflag("h", "help", "print this help menu");
+    opts.optopt("s", "sep", "field separator (default: \\t)", "SEP");
 
     let matches = opts.parse(&args[1..]).or_exit("Cannot parse arguments", 1);
 
@@ -80,6 +81,11 @@ fn main() {
         print_usage(&program, opts);
         process::exit(1)
     }
+
+    let field_sep_str = matches.opt_str("s").unwrap_or("\t".into());
+    let field_sep: char = field_sep_str
+        .parse()
+        .or_exit("Field separator must be a character", 1);
 
     let cutoff = matches
         .opt_str("f")
@@ -117,7 +123,7 @@ fn main() {
         let line = line.or_exit("Cannot extract line from input", 1);
 
         tuple.clear();
-        for (idx, column) in line.trim().split_whitespace().enumerate() {
+        for (idx, column) in line.trim().split(field_sep).enumerate() {
             if indices.contains(&idx) {
                 tuple.push(word_map.number(column))
             }
@@ -130,8 +136,12 @@ fn main() {
         if freq >= cutoff {
             writeln!(
                 writer,
-                "{} {}",
-                tuple.iter().map(|&w| word_map.word(w).unwrap()).join(" "),
+                "{}{}{}",
+                tuple
+                    .iter()
+                    .map(|&w| word_map.word(w).unwrap())
+                    .join(&field_sep_str),
+                field_sep,
                 pmi
             ).or_exit("Cannot write MI to output", 1);
         }
