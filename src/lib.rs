@@ -5,4 +5,4 @@ mod collector;
 pub use collector::{Collector, TupleCollector};
 
 mod mi;
-pub use mi::{MutualInformation, PositiveMutualInformation, SpecificCorrelation};
+pub use mi::{Smoothing, MutualInformation, PositiveMutualInformation, SpecificCorrelation};

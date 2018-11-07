@@ -23,18 +23,26 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn measure_from_str<V>(measure_str: &str) -> Box<MutualInformation<V>>
-where
-    V: 'static + Eq + Hash,
+fn smoothing_from_str(smoothing_str: &str) -> Smoothing {
+    match smoothing_str {
+        "lap" => Smoothing::Laplace,
+        "alpha" => Smoothing::Alpha,
+        _ => Smoothing::None
+    }
+}
+
+fn measure_from_str<V>(measure_str: &str, smoothing: Smoothing) -> Box<MutualInformation<V>>
+    where
+        V: 'static + Eq + Hash,
 {
     match measure_str {
-        "sc" => Box::new(SpecificCorrelation::new(false)),
-        "nsc" => Box::new(SpecificCorrelation::new(true)),
+        "sc" => Box::new(SpecificCorrelation::new(false, smoothing)),
+        "nsc" => Box::new(SpecificCorrelation::new(true, smoothing)),
         "psc" => Box::new(PositiveMutualInformation::new(
-            SpecificCorrelation::new(false),
+            SpecificCorrelation::new(false, smoothing),
         )),
         "pnsc" => Box::new(PositiveMutualInformation::new(
-            SpecificCorrelation::new(true),
+            SpecificCorrelation::new(true, smoothing),
         )),
         _ => {
             eprintln!("Unknown mutual information measure: {}", measure_str);
@@ -72,6 +80,12 @@ fn main() {
         "mutual information measure: sc, nsc, psc, or pnsc (default: sc)",
         "MEASURE",
     );
+    opts.optopt(
+        "o",
+        "smoothing",
+        "smoothing method: lap, alpha",
+        "SMOOTHING",
+    );
     opts.optflag("h", "help", "print this help menu");
     opts.optopt("s", "sep", "field separator (default: \\t)", "SEP");
 
@@ -92,12 +106,14 @@ fn main() {
         .map(|v| v.parse().or_exit("Cannot parse frequency", 1))
         .unwrap_or(1);
 
-    let measure = measure_from_str(&matches.opt_str("m").unwrap_or("sc".to_owned()));
-
     if matches.free.len() == 0 || matches.free.len() > 3 {
         print_usage(&program, opts);
         process::exit(1)
     }
+
+    let smoothing = smoothing_from_str(&matches.opt_str("o").unwrap_or("no".to_owned()));
+
+    let measure = measure_from_str(&matches.opt_str("m").unwrap_or("sc".to_owned()), smoothing);
 
     let indices = parse_indices(&matches.free[0]);
 
