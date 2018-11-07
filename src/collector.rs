@@ -124,6 +124,7 @@ where
                 tuple.as_ref(),
                 &self.collector.event_freqs,
                 &self.collector.event_sums,
+                self.collector.joint_freqs.len(),
                 *tuple_count,
                 self.collector.joint_sum,
             );

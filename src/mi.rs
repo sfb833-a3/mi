@@ -22,6 +22,7 @@ pub trait MutualInformation<V>
         tuple: &[V],
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize],
+        joint_freq_freq: usize,
         joint_freq: usize,
         joint_sum: usize,
     ) -> f64;
@@ -57,11 +58,12 @@ impl<V> MutualInformation<V> for SpecificCorrelation
         tuple: &[V],
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize],
+        joint_freq_freq: usize,
         joint_freq: usize,
         joint_sum: usize,
     ) -> f64 {
         let tuple_len = tuple.as_ref().len();
-        let pmi = sc(tuple, event_freqs, event_sums, joint_freq, joint_sum, &self.smoothing);
+        let pmi = sc(tuple, event_freqs, event_sums, joint_freq_freq, joint_freq, joint_sum, &self.smoothing);
 
         if self.normalize {
             let tuple_p = joint_freq as f64 / joint_sum as f64;
@@ -113,12 +115,13 @@ impl<M, V> MutualInformation<V> for PositiveMutualInformation<M, V>
         tuple: &[V],
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize],
+        joint_freq_freq: usize,
         joint_freq: usize,
         joint_sum: usize,
     ) -> f64 {
         let score =
             self.mi
-                .mutual_information(tuple, event_freqs, event_sums, joint_freq, joint_sum);
+                .mutual_information(tuple, event_freqs, event_sums, joint_freq_freq, joint_freq, joint_sum);
         if score < 0f64 {
             0f64
         } else {
@@ -129,37 +132,51 @@ impl<M, V> MutualInformation<V> for PositiveMutualInformation<M, V>
 
 fn sc<V>(
     tuple: &[V],
-    event_freqs: &[HashMap<V, usize>],
-    event_sums: &[usize],
-    joint_freq: usize,
-    joint_sum: usize,
+    event_freqs: &[HashMap<V, usize>],  // How often does each word occur?
+    event_sums: &[usize],   // How many words occur at this position in total?
+    joint_freq_freq: usize,  // How many different tuples do we have?
+    joint_freq: usize,  // How often does a tuple occur?
+    joint_sum: usize,   // How many tuples of this size do we have?
     smoothing: &Smoothing
 ) -> f64
     where
         V: Eq + Hash,
 {
     let tuple_p = match smoothing {
-        &Smoothing::Laplace => (joint_freq + 1) as f64 / (joint_sum + event_sums.len()) as f64,
+        &Smoothing::Laplace => (joint_freq + 1) as f64 / (joint_sum + joint_freq_freq) as f64,
         _ => joint_freq as f64 / joint_sum as f64
     };
 
     let indep_p = match smoothing {
-        &Smoothing::Laplace => tuple
-            .as_ref()
-            .iter()
-            .enumerate()
-            .map(|(idx, v)| {
-                (event_freqs[idx][v] + 1) as f64 / (event_sums[idx] + event_sums.len()) as f64
-            })
-            .fold(1.0, |acc, v| acc * v),
-        &Smoothing::Alpha => tuple
-            .as_ref()
-            .iter()
-            .enumerate()
-            .map(|(idx, v)| {
-                event_freqs[idx][v] as f64 / event_sums[idx] as f64
-            })
-            .fold(1.0, |acc, v| acc * v * 0.75),
+        &Smoothing::Laplace => {
+            let mut num_events = 0;
+            for i in 0..event_freqs.len() {
+                num_events = num_events + event_freqs[i].len();
+            };
+            tuple
+                .as_ref()
+                .iter()
+                .enumerate()
+                .map(|(idx, v)| {
+                    (event_freqs[idx][v] + 1) as f64 / (event_sums[idx] + num_events) as f64
+                })
+                .fold(1.0, |acc, v| acc * v)
+        },
+        &Smoothing::Alpha => {
+            let mut num_events = 0.0;
+            // Raise each different event to powf(0.75)
+            for i in 0..event_freqs.len() {
+                num_events = num_events + (event_freqs[i].len() as f64).powf(0.75);
+            }
+            tuple
+                .as_ref()
+                .iter()
+                .enumerate()
+                .map(|(idx, v)| {   // The focus word is also raised to powf(0.75) here though only context words should be powf
+                    (event_freqs[idx][v] as f64).powf(0.75) / num_events
+                })
+                .fold(1.0, |acc, v| acc * v)
+        },
         &Smoothing::None => tuple
             .as_ref()
             .iter()

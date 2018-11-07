@@ -83,7 +83,7 @@ fn main() {
     opts.optopt(
         "o",
         "smoothing",
-        "smoothing method: lap, alpha",
+        "smoothing method: lap, alpha (default: none)",
         "SMOOTHING",
     );
     opts.optflag("h", "help", "print this help menu");
