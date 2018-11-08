@@ -164,7 +164,6 @@ fn sc<V>(
         },
         &Smoothing::Alpha => {
             let mut num_events = 0.0;
-            // Raise each different event to powf(0.75)
             for i in 0..event_freqs.len() {
                 num_events = num_events + (event_freqs[i].len() as f64).powf(0.75);
             }
