@@ -22,7 +22,7 @@ pub trait MutualInformation<V>
         tuple: &[V],
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize],
-        joint_freq_freq: usize,
+        num_joint_events: usize,
         joint_freq: usize,
         joint_sum: usize,
     ) -> f64;
@@ -58,12 +58,12 @@ impl<V> MutualInformation<V> for SpecificCorrelation
         tuple: &[V],
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize],
-        joint_freq_freq: usize,
+        num_joint_events: usize,
         joint_freq: usize,
         joint_sum: usize,
     ) -> f64 {
         let tuple_len = tuple.as_ref().len();
-        let pmi = sc(tuple, event_freqs, event_sums, joint_freq_freq, joint_freq, joint_sum, &self.smoothing);
+        let pmi = sc(tuple, event_freqs, event_sums, num_joint_events, joint_freq, joint_sum, &self.smoothing);
 
         if self.normalize {
             let tuple_p = joint_freq as f64 / joint_sum as f64;
@@ -115,13 +115,13 @@ impl<M, V> MutualInformation<V> for PositiveMutualInformation<M, V>
         tuple: &[V],
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize],
-        joint_freq_freq: usize,
+        num_joint_events: usize,
         joint_freq: usize,
         joint_sum: usize,
     ) -> f64 {
         let score =
             self.mi
-                .mutual_information(tuple, event_freqs, event_sums, joint_freq_freq, joint_freq, joint_sum);
+                .mutual_information(tuple, event_freqs, event_sums, num_joint_events, joint_freq, joint_sum);
         if score < 0f64 {
             0f64
         } else {
@@ -132,18 +132,18 @@ impl<M, V> MutualInformation<V> for PositiveMutualInformation<M, V>
 
 fn sc<V>(
     tuple: &[V],
-    event_freqs: &[HashMap<V, usize>],  // How often does each word occur?
-    event_sums: &[usize],   // How many words occur at this position in total?
-    joint_freq_freq: usize,  // How many different tuples do we have?
-    joint_freq: usize,  // How often does a tuple occur?
-    joint_sum: usize,   // How many tuples of this size do we have?
+    event_freqs: &[HashMap<V, usize>],
+    event_sums: &[usize],
+    num_joint_events: usize,
+    joint_freq: usize,
+    joint_sum: usize,
     smoothing: &Smoothing
 ) -> f64
     where
         V: Eq + Hash,
 {
     let tuple_p = match smoothing {
-        &Smoothing::Laplace => (joint_freq + 1) as f64 / (joint_sum + joint_freq_freq) as f64,
+        &Smoothing::Laplace => (joint_freq + 1) as f64 / (joint_sum + num_joint_events) as f64,
         _ => joint_freq as f64 / joint_sum as f64
     };
 
@@ -172,7 +172,7 @@ fn sc<V>(
                 .as_ref()
                 .iter()
                 .enumerate()
-                .map(|(idx, v)| {   // The focus word is also raised to powf(0.75) here though only context words should be powf
+                .map(|(idx, v)| {
                     (event_freqs[idx][v] as f64).powf(0.75) / num_events
                 })
                 .fold(1.0, |acc, v| acc * v)
