@@ -36,13 +36,13 @@ fn measure_from_str<V>(measure_str: &str, smoothing_str: &str, alpha: f64) -> Bo
         }
     };
     match measure_str {
-        "sc" => Box::new(SpecificCorrelation::new(false, &smoothing)),
-        "nsc" => Box::new(SpecificCorrelation::new(true, &smoothing)),
+        "sc" => Box::new(SpecificCorrelation::new(false, smoothing)),
+        "nsc" => Box::new(SpecificCorrelation::new(true, smoothing)),
         "psc" => Box::new(PositiveMutualInformation::new(
-            SpecificCorrelation::new(false, &smoothing),
+            SpecificCorrelation::new(false, smoothing),
         )),
         "pnsc" => Box::new(PositiveMutualInformation::new(
-            SpecificCorrelation::new(true, &smoothing),
+            SpecificCorrelation::new(true, smoothing),
         )),
         _ => {
             eprintln!("Unknown mutual information measure: {}", measure_str);

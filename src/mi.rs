@@ -129,18 +129,18 @@ pub trait MutualInformation<V>
 ///
 /// The specific correlation measure is a generalization of PMI for multiple
 /// random variables.
-pub struct SpecificCorrelation<'a, V: 'a> {
+pub struct SpecificCorrelation<V> {
     normalize: bool,
-    smoothing: &'a Smoothing<V>,
+    smoothing: Box<Smoothing<V>>,
 }
 
-impl<'a, V> SpecificCorrelation<'a, V>
+impl<V> SpecificCorrelation<V>
     where
-        V: 'a + Eq + Hash {
+        V: Eq + Hash {
     /// Construct a new specific correlation function.
     ///
     /// If normalization is enable, the result will lie between -1 and 1.
-    pub fn new(normalize: bool, smoothing: &'a Smoothing<V>) -> Self {
+    pub fn new(normalize: bool, smoothing: Box<Smoothing<V>>) -> Self {
         SpecificCorrelation {
             normalize,
             smoothing
@@ -148,9 +148,9 @@ impl<'a, V> SpecificCorrelation<'a, V>
     }
 }
 
-impl<'a, V> MutualInformation<V> for SpecificCorrelation<'a, V>
+impl<V> MutualInformation<V> for SpecificCorrelation<V>
     where
-        V: 'a + Eq + Hash,
+        V: Eq + Hash,
 {
     fn mutual_information(
         &self,
@@ -163,7 +163,7 @@ impl<'a, V> MutualInformation<V> for SpecificCorrelation<'a, V>
     ) -> f64 {
 
         let tuple_len = tuple.as_ref().len();
-        let pmi = sc(tuple, event_freqs, event_sums, joint_freqs_len, joint_freq, joint_sum, self.smoothing);
+        let pmi = sc(tuple, event_freqs, event_sums, joint_freqs_len, joint_freq, joint_sum, &self.smoothing);
 
         if self.normalize {
             let tuple_p = joint_freq as f64 / joint_sum as f64;
@@ -237,7 +237,7 @@ fn sc<V>(
     joint_freqs_len: usize,
     joint_freq: usize,
     joint_sum: usize,
-    smoothing: &Smoothing<V>
+    smoothing: &Box<Smoothing<V>>
 ) -> f64
     where
         V: Eq + Hash,
