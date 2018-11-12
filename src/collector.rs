@@ -16,8 +16,8 @@ pub trait Collector<V> {
         &'a self,
         mi: &'a MutualInformation<V>,
     ) -> Box<Iterator<Item = (&'a [V], usize, f64)> + 'a>
-    where
-        V: Eq + Hash;
+        where
+            V: Eq + Hash;
 }
 
 pub struct TupleCollector<T, V> {
@@ -36,9 +36,9 @@ pub struct TupleCollector<T, V> {
 /// 3-triple, separate counts are kept for events in the first, second,
 /// and third position.
 impl<T, V> Collector<V> for TupleCollector<T, V>
-where
-    T: AsMut<[V]> + AsRef<[V]> + Clone + Default + Eq + Hash,
-    V: Clone + Eq + Hash,
+    where
+        T: AsMut<[V]> + AsRef<[V]> + Clone + Default + Eq + Hash,
+        V: Clone + Eq + Hash,
 {
     fn count(&mut self, slice: &[V]) {
         let mut tuple = T::default();
@@ -74,9 +74,9 @@ where
 }
 
 impl<T, V> TupleCollector<T, V>
-where
-    T: AsRef<[V]> + Clone + Default + Eq + Hash,
-    V: Clone + Eq + Hash,
+    where
+        T: AsRef<[V]> + Clone + Default + Eq + Hash,
+        V: Clone + Eq + Hash,
 {
     /// Construct a new `ColumnTupleCollector`.
     pub fn new() -> Self {
@@ -102,9 +102,9 @@ where
 }
 
 pub struct Iter<'a, T, V>
-where
-    T: 'a + AsRef<[V]>,
-    V: 'a + Eq + Hash,
+    where
+        T: 'a + AsRef<[V]>,
+        V: 'a + Eq + Hash,
 {
     collector: &'a TupleCollector<T, V>,
     inner: hash_map::Iter<'a, T, usize>,
@@ -112,9 +112,9 @@ where
 }
 
 impl<'a, T, V> Iterator for Iter<'a, T, V>
-where
-    T: AsRef<[V]> + Clone + Eq + Hash,
-    V: Eq + Hash,
+    where
+        T: AsRef<[V]> + Clone + Eq + Hash,
+        V: Eq + Hash,
 {
     type Item = (&'a [V], usize, f64);
 
