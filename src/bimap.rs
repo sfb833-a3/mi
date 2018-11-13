@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::collections::hash_map;
+use std::collections::HashMap;
 
 pub struct WordMap {
     words: Vec<String>,

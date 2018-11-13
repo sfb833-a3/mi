@@ -5,7 +5,10 @@ mod collector;
 pub use collector::{Collector, TupleCollector};
 
 mod mi;
-pub use mi::{Smoothing, LaplaceSmoothing, RawProb, MutualInformation, PositiveMutualInformation, SpecificCorrelation};
+pub use mi::{
+    LaplaceSmoothing, MutualInformation, PositiveMutualInformation, RawProb, Smoothing,
+    SpecificCorrelation,
+};
 
 #[cfg(test)]
 mod tests;
