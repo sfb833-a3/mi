@@ -9,19 +9,6 @@ pub trait Smoothing<V> {
     fn prob(&self, tuple: &[V], event_freqs: &[HashMap<V, usize>], event_sums: &[usize]) -> f64;
 }
 
-impl<T, V> Smoothing<V> for Box<T>
-where
-    T: ?Sized + Smoothing<V>,
-{
-    fn joint_prob(&self, tuple: &[V], joint_freqs: &JointFreqs<V>, joint_sum: usize) -> f64 {
-        self.as_ref().joint_prob(tuple, joint_freqs, joint_sum)
-    }
-
-    fn prob(&self, tuple: &[V], event_freqs: &[HashMap<V, usize>], event_sums: &[usize]) -> f64 {
-        self.as_ref().prob(tuple, event_freqs, event_sums)
-    }
-}
-
 /// Laplace smoothing
 pub struct LaplaceSmoothing {
     alpha: f64,

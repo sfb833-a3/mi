@@ -23,22 +23,11 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn measure_from_str<V>(
-    measure_str: &str,
-    smoothing_str: &str,
-    alpha: f64,
-) -> Box<MutualInformation<V>>
+fn measure_with_smoothing<S, V>(measure_str: &str, smoothing: S) -> Box<MutualInformation<V>>
 where
-    V: 'static + Eq + Hash,
+    S: 'static + Smoothing<V>,
+    V: Eq + Hash,
 {
-    let smoothing: Box<Smoothing<V>> = match smoothing_str {
-        "laplace" => Box::new(LaplaceSmoothing::new(alpha)),
-        "none" => Box::new(RawProb::new()),
-        _ => {
-            eprintln!("Unknown smoothing method: {}", smoothing_str);
-            process::exit(1);
-        }
-    };
     match measure_str {
         "sc" => Box::new(SpecificCorrelation::new(false, smoothing)),
         "nsc" => Box::new(SpecificCorrelation::new(true, smoothing)),
@@ -50,6 +39,24 @@ where
         ))),
         _ => {
             eprintln!("Unknown mutual information measure: {}", measure_str);
+            process::exit(1);
+        }
+    }
+}
+
+fn measure_from_str<V>(
+    measure_str: &str,
+    smoothing_str: &str,
+    alpha: f64,
+) -> Box<MutualInformation<V>>
+where
+    V: 'static + Eq + Hash,
+{
+    match smoothing_str {
+        "laplace" => measure_with_smoothing(measure_str, LaplaceSmoothing::new(alpha)),
+        "none" => measure_with_smoothing(measure_str, RawProb::new()),
+        _ => {
+            eprintln!("Unknown smoothing method: {}", smoothing_str);
             process::exit(1);
         }
     }
