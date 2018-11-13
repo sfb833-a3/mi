@@ -264,7 +264,6 @@ fn sc<V>(
 #[cfg(test)]
 mod tests {
     use super::{Smoothing, LaplaceSmoothing, RawProb};
-    use std::collections::HashMap;
     use tests::EVENT_FREQS;
 
     const TUPLE: &[usize] = &[1, 2];
