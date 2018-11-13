@@ -131,7 +131,7 @@ impl<S, V> MutualInformation<V> for SpecificCorrelation<S> where S: Smoothing<V>
         );
 
         if self.normalize {
-            let tuple_p = joint_freq as f64 / joint_sum as f64;
+            let tuple_p = self.smoothing.joint_prob(joint_freq, joint_sum, joint_freqs_len);
 
             if pmi.is_sign_positive() {
                 pmi / (-((tuple_len - 1) as f64) * tuple_p.ln())
