@@ -5,8 +5,17 @@ use JointFreqs;
 
 /// Trait for smoothing methods.
 pub trait Smoothing<V> {
+    /// Get the joint probability of x...z, P(x,...,z).
     fn joint_prob(&self, tuple: &[V], joint_freqs: &JointFreqs<V>, joint_sum: usize) -> f64;
-    fn prob(&self, tuple: &[V], event_freqs: &[HashMap<V, usize>], event_sums: &[usize]) -> f64;
+
+    /// Get the expected probability of x...z as independent events,
+    /// P(x)...P(z).
+    fn independent_prob(
+        &self,
+        tuple: &[V],
+        event_freqs: &[HashMap<V, usize>],
+        event_sums: &[usize],
+    ) -> f64;
 }
 
 /// Laplace smoothing
@@ -24,7 +33,12 @@ impl<V> Smoothing<V> for LaplaceSmoothing
 where
     V: Eq + Hash,
 {
-    fn prob(&self, tuple: &[V], event_freqs: &[HashMap<V, usize>], event_sums: &[usize]) -> f64 {
+    fn independent_prob(
+        &self,
+        tuple: &[V],
+        event_freqs: &[HashMap<V, usize>],
+        event_sums: &[usize],
+    ) -> f64 {
         tuple
             .as_ref()
             .iter()
@@ -54,7 +68,12 @@ impl<V> Smoothing<V> for RawProb
 where
     V: Eq + Hash,
 {
-    fn prob(&self, tuple: &[V], event_freqs: &[HashMap<V, usize>], event_sums: &[usize]) -> f64 {
+    fn independent_prob(
+        &self,
+        tuple: &[V],
+        event_freqs: &[HashMap<V, usize>],
+        event_sums: &[usize],
+    ) -> f64 {
         tuple
             .as_ref()
             .iter()
@@ -184,7 +203,7 @@ fn sc<V>(
     smoothing: &Smoothing<V>,
 ) -> f64 {
     let tuple_p = smoothing.joint_prob(tuple, joint_freqs, joint_sum);
-    let indep_p = smoothing.prob(tuple, event_freqs, event_sums);
+    let indep_p = smoothing.independent_prob(tuple, event_freqs, event_sums);
 
     (tuple_p / indep_p).ln()
 }
@@ -224,7 +243,7 @@ mod tests {
         let smoothing = LaplaceSmoothing::new(1_f64);
 
         let tuple_p = smoothing.joint_prob(TUPLE, &*JOINT_FREQS, JOINT_SUM);
-        let indep_p = smoothing.prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
+        let indep_p = smoothing.independent_prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
 
         let res = (tuple_p / indep_p).ln();
         let cmp = 0.667829373;
@@ -236,7 +255,7 @@ mod tests {
         let smoothing = RawProb::new();
 
         let tuple_p = smoothing.joint_prob(TUPLE, &*JOINT_FREQS, JOINT_SUM);
-        let indep_p = smoothing.prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
+        let indep_p = smoothing.independent_prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
 
         let res = (tuple_p / indep_p).ln();
         let cmp = 0.693147181;
