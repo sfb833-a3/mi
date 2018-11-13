@@ -2,14 +2,145 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-#[derive(PartialEq)]
-pub enum Smoothing {
-    /// Do not apply smoothing
-    None,
-    /// Apply smoothing as described in Jurafsky and Martin, ch.6, pp.18f
-    Alpha,
-    /// Apply Laplacian smoothing
-    Laplace
+
+/// Trait for smoothing methods.
+pub trait Smoothing<V> {
+    fn prob(
+        &self,
+        tuple: &[V],
+        event_freqs: &[HashMap<V, usize>],
+        event_sums: &[usize]
+    ) -> f64;
+    fn joint_prob(
+        &self,
+        joint_freq: usize,
+        joint_sum: usize,
+        joint_freqs_len: usize
+    ) -> f64;
+}
+
+/// Laplace smoothing
+pub struct LaplaceSmoothing<V>
+    where
+        V: Eq + Hash
+{
+    alpha: f64,
+    tuple_value_type: PhantomData<V>
+}
+
+impl<V> LaplaceSmoothing<V>
+    where
+        V: Eq + Hash
+{
+    pub fn new(alpha: f64) -> Self {
+        LaplaceSmoothing {
+            alpha,
+            tuple_value_type: PhantomData
+        }
+    }
+}
+
+impl<V> Smoothing<V> for LaplaceSmoothing<V>
+    where
+        V: Eq + Hash
+{
+    fn prob(
+        &self,
+        tuple: &[V],
+        event_freqs: &[HashMap<V, usize>],
+        event_sums: &[usize]
+    ) -> f64 {
+        let res =
+            tuple
+                .as_ref()
+                .iter()
+                .enumerate()
+                .map(|(idx, v)| {
+                    println!("{} / {} + {}", event_freqs[idx][v] as f64 + self.alpha, event_sums[idx], event_freqs[idx].len());
+                    (event_freqs[idx][v] as f64 + self.alpha) /
+                        (event_sums[idx] + event_freqs[idx].len()) as f64
+                })
+                .fold(1.0, |acc, v| acc * v);
+        tuple
+            .as_ref()
+            .iter()
+            .enumerate()
+            .map(|(idx, v)| {
+                (event_freqs[idx][v] as f64 + self.alpha) /
+                    (event_sums[idx] + event_freqs[idx].len()) as f64
+            })
+            .fold(1.0, |acc, v| acc * v)
+    }
+    fn joint_prob(
+        &self,
+        joint_freq: usize,
+        joint_sum: usize,
+        joint_freqs_len: usize
+
+    ) -> f64 {
+        (joint_freq as f64 + self.alpha) / (joint_sum as f64 + joint_freqs_len as f64 * self.alpha)
+    }
+}
+
+/// Compute probabilities without smoothing
+pub struct RawProb<V>
+    where
+        V: Eq + Hash
+{
+    alpha: f64,
+    tuple_value_type: PhantomData<V>
+}
+
+impl<V> RawProb<V>
+    where
+        V: Eq + Hash
+{
+    pub fn new(alpha: f64) -> Self {
+        RawProb {
+            alpha,
+            tuple_value_type: PhantomData
+        }
+    }
+}
+
+impl<V> Smoothing<V> for RawProb<V>
+    where
+        V: Eq + Hash
+{
+    fn prob(
+        &self,
+        tuple: &[V],
+        event_freqs: &[HashMap<V, usize>],
+        event_sums: &[usize]
+    ) -> f64 {
+        let res =
+            tuple
+                .as_ref()
+                .iter()
+                .enumerate()
+                .map(|(idx, v)| {
+                    println!("{} / {}", event_freqs[idx][v], event_sums[idx]);
+                    event_freqs[idx][v] as f64 / event_sums[idx] as f64
+                })
+                .fold(1.0, |acc, v| acc * v);
+        println!("{}", res);
+        tuple
+            .as_ref()
+            .iter()
+            .enumerate()
+            .map(|(idx, v)| {
+                event_freqs[idx][v] as f64 / event_sums[idx] as f64
+            })
+            .fold(1.0, |acc, v| acc * v)
+    }
+    fn joint_prob(
+        &self,
+        joint_freq: usize,
+        joint_sum: usize,
+        joint_freqs_len: usize
+    ) -> f64 {
+        joint_freq as f64 / joint_sum as f64
+    }
 }
 
 /// Trait for mutual information measures.
@@ -32,16 +163,18 @@ pub trait MutualInformation<V>
 ///
 /// The specific correlation measure is a generalization of PMI for multiple
 /// random variables.
-pub struct SpecificCorrelation {
+pub struct SpecificCorrelation<V> {
     normalize: bool,
-    smoothing: Smoothing,
+    smoothing: Box<Smoothing<V>>,
 }
 
-impl SpecificCorrelation {
+impl<V> SpecificCorrelation<V>
+    where
+        V: Eq + Hash {
     /// Construct a new specific correlation function.
     ///
     /// If normalization is enable, the result will lie between -1 and 1.
-    pub fn new(normalize: bool, smoothing: Smoothing) -> Self {
+    pub fn new(normalize: bool, smoothing: Box<Smoothing<V>>) -> Self {
         SpecificCorrelation {
             normalize,
             smoothing
@@ -49,7 +182,7 @@ impl SpecificCorrelation {
     }
 }
 
-impl<V> MutualInformation<V> for SpecificCorrelation
+impl<V> MutualInformation<V> for SpecificCorrelation<V>
     where
         V: Eq + Hash,
 {
@@ -58,12 +191,13 @@ impl<V> MutualInformation<V> for SpecificCorrelation
         tuple: &[V],
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize],
-        num_joint_events: usize,
+        joint_freqs_len: usize,
         joint_freq: usize,
         joint_sum: usize,
     ) -> f64 {
+
         let tuple_len = tuple.as_ref().len();
-        let pmi = sc(tuple, event_freqs, event_sums, num_joint_events, joint_freq, joint_sum, &self.smoothing);
+        let pmi = sc(tuple, event_freqs, event_sums, joint_freqs_len, joint_freq, joint_sum, &self.smoothing);
 
         if self.normalize {
             let tuple_p = joint_freq as f64 / joint_sum as f64;
@@ -81,7 +215,7 @@ impl<V> MutualInformation<V> for SpecificCorrelation
 
 /// Positive mutual information.
 ///
-/// This function is a simple wrapper around anouther mutual information
+/// This function is a simple wrapper around another mutual information
 /// function that will 'round' negative mutual information to *0*.
 pub struct PositiveMutualInformation<M, V>
     where
@@ -134,57 +268,57 @@ fn sc<V>(
     tuple: &[V],
     event_freqs: &[HashMap<V, usize>],
     event_sums: &[usize],
-    num_joint_events: usize,
+    joint_freqs_len: usize,
     joint_freq: usize,
     joint_sum: usize,
-    smoothing: &Smoothing
+    smoothing: &Box<Smoothing<V>>
 ) -> f64
     where
         V: Eq + Hash,
 {
-    let tuple_p = match smoothing {
-        &Smoothing::Laplace => (joint_freq + 1) as f64 / (joint_sum + num_joint_events) as f64,
-        _ => joint_freq as f64 / joint_sum as f64
-    };
 
-    let indep_p = match smoothing {
-        &Smoothing::Laplace => {
-            let mut num_events = 0;
-            for i in 0..event_freqs.len() {
-                num_events = num_events + event_freqs[i].len();
-            };
-            tuple
-                .as_ref()
-                .iter()
-                .enumerate()
-                .map(|(idx, v)| {
-                    (event_freqs[idx][v] + 1) as f64 / (event_sums[idx] + num_events) as f64
-                })
-                .fold(1.0, |acc, v| acc * v)
-        },
-        &Smoothing::Alpha => {
-            let mut num_events = 0.0;
-            for i in 0..event_freqs.len() {
-                num_events = num_events + (event_freqs[i].len() as f64).powf(0.75);
-            }
-            tuple
-                .as_ref()
-                .iter()
-                .enumerate()
-                .map(|(idx, v)| {
-                    (event_freqs[idx][v] as f64).powf(0.75) / num_events
-                })
-                .fold(1.0, |acc, v| acc * v)
-        },
-        &Smoothing::None => tuple
-            .as_ref()
-            .iter()
-            .enumerate()
-            .map(|(idx, v)| {
-                event_freqs[idx][v] as f64 / event_sums[idx] as f64
-            })
-            .fold(1.0, |acc, v| acc * v)
-    };
+    let tuple_p = smoothing.joint_prob(joint_freq, joint_sum,joint_freqs_len);
+    let indep_p = smoothing.prob(tuple, event_freqs, event_sums);
 
     (tuple_p / indep_p).ln()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Smoothing, LaplaceSmoothing, RawProb};
+    use std::collections::HashMap;
+    use tests::EVENT_FREQS;
+
+    const TUPLE: &[usize] = &[1, 2];
+    const EVENT_SUMS: &[usize] = &[12, 11];
+    const JOINT_FREQS_LEN: usize = 4;
+    const JOINT_FREQ: usize = 2;
+    const JOINT_SUM: usize = 11;
+
+
+    #[test]
+    pub fn test_laplace() {
+        let smoothing = LaplaceSmoothing::new(1_f64);
+
+        let tuple_p = smoothing.joint_prob(JOINT_FREQ, JOINT_SUM,JOINT_FREQS_LEN);
+        let indep_p = smoothing.prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
+
+        let res = (tuple_p / indep_p).ln();
+        let cmp = 0.667829373;
+        eprintln!("{} <> {}", res, cmp);
+        assert!((res - cmp).abs() < 1e-5);
+    }
+
+    #[test]
+    pub fn test_rawprob() {
+        let smoothing = RawProb::new(0_f64);
+
+        let tuple_p = smoothing.joint_prob(JOINT_FREQ, JOINT_SUM,JOINT_FREQS_LEN);
+        let indep_p = smoothing.prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
+
+        let res = (tuple_p / indep_p).ln();
+        let cmp = 0.693147181;
+        eprintln!("{} <> {}", res, cmp);
+        assert!((res - cmp).abs() < 1e-5);
+    }
 }

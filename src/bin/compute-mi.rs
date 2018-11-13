@@ -23,18 +23,18 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn smoothing_from_str(smoothing_str: &str) -> Smoothing {
-    match smoothing_str {
-        "lap" => Smoothing::Laplace,
-        "alpha" => Smoothing::Alpha,
-        _ => Smoothing::None
-    }
-}
-
-fn measure_from_str<V>(measure_str: &str, smoothing: Smoothing) -> Box<MutualInformation<V>>
+fn measure_from_str<V>(measure_str: &str, smoothing_str: &str, alpha: f64) -> Box<MutualInformation<V>>
     where
         V: 'static + Eq + Hash,
 {
+    let smoothing: Box<Smoothing<V>> = match smoothing_str {
+        "laplace" => Box::new(LaplaceSmoothing::new(alpha)),
+        "none" => Box::new(RawProb::new(alpha)),
+        _ => {
+            eprintln!("Unknown smoothing method: {}", smoothing_str);
+            process::exit(1);
+        }
+    };
     match measure_str {
         "sc" => Box::new(SpecificCorrelation::new(false, smoothing)),
         "nsc" => Box::new(SpecificCorrelation::new(true, smoothing)),
@@ -86,6 +86,12 @@ fn main() {
         "smoothing method: lap, alpha (default: none)",
         "SMOOTHING",
     );
+    opts.optopt(
+        "a",
+        "alpha",
+        "smoothing strength (default laplace: 1)",
+        "SMOOTHING_ALPHA",
+    );
     opts.optflag("h", "help", "print this help menu");
     opts.optopt("s", "sep", "field separator (default: \\t)", "SEP");
 
@@ -111,9 +117,16 @@ fn main() {
         process::exit(1)
     }
 
-    let smoothing = smoothing_from_str(&matches.opt_str("o").unwrap_or("no".to_owned()));
+    let alpha_opt = &matches.opt_str("a").unwrap_or("0".to_owned());
+    if alpha_opt.parse::<f64>().is_err() {
+        eprintln!("Cannot get smoothing strength of type f64 from {}", alpha_opt);
+        process::exit(1);
+    };
+    let alpha = alpha_opt.parse::<f64>().unwrap_or(0.0_f64);
 
-    let measure = measure_from_str(&matches.opt_str("m").unwrap_or("sc".to_owned()), smoothing);
+    let measure = measure_from_str(&matches.opt_str("m").unwrap_or("sc".to_owned()),
+                                   &matches.opt_str("o").unwrap_or("none".to_owned()),
+                                   alpha);
 
     let indices = parse_indices(&matches.free[0]);
 
