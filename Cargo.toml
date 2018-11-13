@@ -7,4 +7,4 @@ authors = ["Daniël de Kok <me@danieldk.eu>"]
 getopts = "0.2"
 itertools = "0.7"
 stdinout = "0.4"
-lazy_static = "1.2.0"
+lazy_static = "1"
