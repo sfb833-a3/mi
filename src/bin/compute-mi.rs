@@ -23,21 +23,40 @@ fn print_usage(program: &str, opts: Options) {
     print!("{}", opts.usage(&brief));
 }
 
-fn measure_from_str<V>(measure_str: &str) -> Box<MutualInformation<V>>
+fn measure_with_smoothing<S, V>(measure_str: &str, smoothing: S) -> Box<MutualInformation<V>>
+where
+    S: 'static + Smoothing<V>,
+    V: Eq + Hash,
+{
+    match measure_str {
+        "sc" => Box::new(SpecificCorrelation::new(false, smoothing)),
+        "nsc" => Box::new(SpecificCorrelation::new(true, smoothing)),
+        "psc" => Box::new(PositiveMutualInformation::new(SpecificCorrelation::new(
+            false, smoothing,
+        ))),
+        "pnsc" => Box::new(PositiveMutualInformation::new(SpecificCorrelation::new(
+            true, smoothing,
+        ))),
+        _ => {
+            eprintln!("Unknown mutual information measure: {}", measure_str);
+            process::exit(1);
+        }
+    }
+}
+
+fn measure_from_str<V>(
+    measure_str: &str,
+    smoothing_str: &str,
+    alpha: f64,
+) -> Box<MutualInformation<V>>
 where
     V: 'static + Eq + Hash,
 {
-    match measure_str {
-        "sc" => Box::new(SpecificCorrelation::new(false)),
-        "nsc" => Box::new(SpecificCorrelation::new(true)),
-        "psc" => Box::new(PositiveMutualInformation::new(
-            SpecificCorrelation::new(false),
-        )),
-        "pnsc" => Box::new(PositiveMutualInformation::new(
-            SpecificCorrelation::new(true),
-        )),
+    match smoothing_str {
+        "laplace" => measure_with_smoothing(measure_str, LaplaceSmoothing::new(alpha)),
+        "none" => measure_with_smoothing(measure_str, RawProb::new()),
         _ => {
-            eprintln!("Unknown mutual information measure: {}", measure_str);
+            eprintln!("Unknown smoothing method: {}", smoothing_str);
             process::exit(1);
         }
     }
@@ -72,6 +91,18 @@ fn main() {
         "mutual information measure: sc, nsc, psc, or pnsc (default: sc)",
         "MEASURE",
     );
+    opts.optopt(
+        "o",
+        "smoothing",
+        "smoothing method: lap, alpha (default: none)",
+        "SMOOTHING",
+    );
+    opts.optopt(
+        "a",
+        "alpha",
+        "smoothing strength (default laplace: 1)",
+        "SMOOTHING_ALPHA",
+    );
     opts.optflag("h", "help", "print this help menu");
     opts.optopt("s", "sep", "field separator (default: \\t)", "SEP");
 
@@ -92,12 +123,26 @@ fn main() {
         .map(|v| v.parse().or_exit("Cannot parse frequency", 1))
         .unwrap_or(1);
 
-    let measure = measure_from_str(&matches.opt_str("m").unwrap_or("sc".to_owned()));
-
     if matches.free.len() == 0 || matches.free.len() > 3 {
         print_usage(&program, opts);
         process::exit(1)
     }
+
+    let alpha_opt = &matches.opt_str("a").unwrap_or("0".to_owned());
+    if alpha_opt.parse::<f64>().is_err() {
+        eprintln!(
+            "Cannot get smoothing strength of type f64 from {}",
+            alpha_opt
+        );
+        process::exit(1);
+    };
+    let alpha = alpha_opt.parse::<f64>().unwrap_or(0.0_f64);
+
+    let measure = measure_from_str(
+        &matches.opt_str("m").unwrap_or("sc".to_owned()),
+        &matches.opt_str("o").unwrap_or("none".to_owned()),
+        alpha,
+    );
 
     let indices = parse_indices(&matches.free[0]);
 
