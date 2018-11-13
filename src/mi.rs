@@ -20,21 +20,27 @@ pub trait Smoothing<V> {
 }
 
 /// Laplace smoothing
-pub struct LaplaceSmoothing
+pub struct LaplaceSmoothing<V>
+    where
+        V: Eq + Hash
 {
-    alpha: f64
+    alpha: f64,
+    tuple_value_type: PhantomData<V>
 }
 
-impl LaplaceSmoothing
+impl<V> LaplaceSmoothing<V>
+    where
+        V: Eq + Hash
 {
     pub fn new(alpha: f64) -> Self {
         LaplaceSmoothing {
-            alpha
+            alpha,
+            tuple_value_type: PhantomData
         }
     }
 }
 
-impl<V> Smoothing<V> for LaplaceSmoothing
+impl<V> Smoothing<V> for LaplaceSmoothing<V>
     where
         V: Eq + Hash
 {
@@ -44,6 +50,17 @@ impl<V> Smoothing<V> for LaplaceSmoothing
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize]
     ) -> f64 {
+        let res =
+            tuple
+                .as_ref()
+                .iter()
+                .enumerate()
+                .map(|(idx, v)| {
+                    println!("{} / {} + {}", event_freqs[idx][v] as f64 + self.alpha, event_sums[idx], event_freqs[idx].len());
+                    (event_freqs[idx][v] as f64 + self.alpha) /
+                        (event_sums[idx] + event_freqs[idx].len()) as f64
+                })
+                .fold(1.0, |acc, v| acc * v);
         tuple
             .as_ref()
             .iter()
@@ -66,21 +83,27 @@ impl<V> Smoothing<V> for LaplaceSmoothing
 }
 
 /// Compute probabilities without smoothing
-pub struct RawProb
+pub struct RawProb<V>
+    where
+        V: Eq + Hash
 {
-    alpha: f64
+    alpha: f64,
+    tuple_value_type: PhantomData<V>
 }
 
-impl RawProb
+impl<V> RawProb<V>
+    where
+        V: Eq + Hash
 {
     pub fn new(alpha: f64) -> Self {
         RawProb {
-            alpha
+            alpha,
+            tuple_value_type: PhantomData
         }
     }
 }
 
-impl<V> Smoothing<V> for RawProb
+impl<V> Smoothing<V> for RawProb<V>
     where
         V: Eq + Hash
 {
@@ -90,6 +113,17 @@ impl<V> Smoothing<V> for RawProb
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize]
     ) -> f64 {
+        let res =
+            tuple
+                .as_ref()
+                .iter()
+                .enumerate()
+                .map(|(idx, v)| {
+                    println!("{} / {}", event_freqs[idx][v], event_sums[idx]);
+                    event_freqs[idx][v] as f64 / event_sums[idx] as f64
+                })
+                .fold(1.0, |acc, v| acc * v);
+        println!("{}", res);
         tuple
             .as_ref()
             .iter()
@@ -247,4 +281,44 @@ fn sc<V>(
     let indep_p = smoothing.prob(tuple, event_freqs, event_sums);
 
     (tuple_p / indep_p).ln()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Smoothing, LaplaceSmoothing, RawProb};
+    use std::collections::HashMap;
+    use tests::EVENT_FREQS;
+
+    const TUPLE: &[usize] = &[1, 2];
+    const EVENT_SUMS: &[usize] = &[12, 11];
+    const JOINT_FREQS_LEN: usize = 4;
+    const JOINT_FREQ: usize = 2;
+    const JOINT_SUM: usize = 11;
+
+
+    #[test]
+    pub fn test_laplace() {
+        let smoothing = LaplaceSmoothing::new(1_f64);
+
+        let tuple_p = smoothing.joint_prob(JOINT_FREQ, JOINT_SUM,JOINT_FREQS_LEN);
+        let indep_p = smoothing.prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
+
+        let res = (tuple_p / indep_p).ln();
+        let cmp = 0.667829373;
+        eprintln!("{} <> {}", res, cmp);
+        assert!((res - cmp).abs() < 1e-5);
+    }
+
+    #[test]
+    pub fn test_rawprob() {
+        let smoothing = RawProb::new(0_f64);
+
+        let tuple_p = smoothing.joint_prob(JOINT_FREQ, JOINT_SUM,JOINT_FREQS_LEN);
+        let indep_p = smoothing.prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
+
+        let res = (tuple_p / indep_p).ln();
+        let cmp = 0.693147181;
+        eprintln!("{} <> {}", res, cmp);
+        assert!((res - cmp).abs() < 1e-5);
+    }
 }
