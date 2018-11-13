@@ -94,7 +94,7 @@ fn main() {
     opts.optopt(
         "o",
         "smoothing",
-        "smoothing method: lap, alpha (default: none)",
+        "smoothing method: laplace, alpha (default: none)",
         "SMOOTHING",
     );
     opts.optopt(
