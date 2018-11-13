@@ -78,10 +78,7 @@ impl JointProb for RawProb {
 }
 
 /// Trait for mutual information measures.
-pub trait MutualInformation<V>
-where
-    V: Eq + Hash,
-{
+pub trait MutualInformation<V> {
     fn mutual_information(
         &self,
         tuple: &[V],
@@ -102,10 +99,7 @@ pub struct SpecificCorrelation<V> {
     smoothing: Box<Smoothing<V>>,
 }
 
-impl<V> SpecificCorrelation<V>
-where
-    V: Eq + Hash,
-{
+impl<V> SpecificCorrelation<V> {
     /// Construct a new specific correlation function.
     ///
     /// If normalization is enable, the result will lie between -1 and 1.
@@ -117,10 +111,7 @@ where
     }
 }
 
-impl<V> MutualInformation<V> for SpecificCorrelation<V>
-where
-    V: Eq + Hash,
-{
+impl<V> MutualInformation<V> for SpecificCorrelation<V> {
     fn mutual_information(
         &self,
         tuple: &[V],
@@ -162,7 +153,6 @@ where
 pub struct PositiveMutualInformation<M, V>
 where
     M: MutualInformation<V>,
-    V: Eq + Hash,
 {
     mi: M,
     tuple_value_type: PhantomData<V>,
@@ -171,7 +161,6 @@ where
 impl<M, V> PositiveMutualInformation<M, V>
 where
     M: MutualInformation<V>,
-    V: Eq + Hash,
 {
     pub fn new(mi: M) -> Self {
         PositiveMutualInformation {
@@ -184,7 +173,6 @@ where
 impl<M, V> MutualInformation<V> for PositiveMutualInformation<M, V>
 where
     M: MutualInformation<V>,
-    V: Eq + Hash,
 {
     fn mutual_information(
         &self,
@@ -219,10 +207,7 @@ fn sc<V>(
     joint_freq: usize,
     joint_sum: usize,
     smoothing: &Box<Smoothing<V>>,
-) -> f64
-where
-    V: Eq + Hash,
-{
+) -> f64 {
     let tuple_p = smoothing.joint_prob(joint_freq, joint_sum, joint_freqs_len);
     let indep_p = smoothing.prob(tuple, event_freqs, event_sums);
 
