@@ -50,17 +50,6 @@ impl<V> Smoothing<V> for LaplaceSmoothing<V>
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize]
     ) -> f64 {
-        let res =
-            tuple
-                .as_ref()
-                .iter()
-                .enumerate()
-                .map(|(idx, v)| {
-                    println!("{} / {} + {}", event_freqs[idx][v] as f64 + self.alpha, event_sums[idx], event_freqs[idx].len());
-                    (event_freqs[idx][v] as f64 + self.alpha) /
-                        (event_sums[idx] + event_freqs[idx].len()) as f64
-                })
-                .fold(1.0, |acc, v| acc * v);
         tuple
             .as_ref()
             .iter()
@@ -113,17 +102,6 @@ impl<V> Smoothing<V> for RawProb<V>
         event_freqs: &[HashMap<V, usize>],
         event_sums: &[usize]
     ) -> f64 {
-        let res =
-            tuple
-                .as_ref()
-                .iter()
-                .enumerate()
-                .map(|(idx, v)| {
-                    println!("{} / {}", event_freqs[idx][v], event_sums[idx]);
-                    event_freqs[idx][v] as f64 / event_sums[idx] as f64
-                })
-                .fold(1.0, |acc, v| acc * v);
-        println!("{}", res);
         tuple
             .as_ref()
             .iter()
@@ -305,7 +283,6 @@ mod tests {
 
         let res = (tuple_p / indep_p).ln();
         let cmp = 0.667829373;
-        eprintln!("{} <> {}", res, cmp);
         assert!((res - cmp).abs() < 1e-5);
     }
 
@@ -318,7 +295,6 @@ mod tests {
 
         let res = (tuple_p / indep_p).ln();
         let cmp = 0.693147181;
-        eprintln!("{} <> {}", res, cmp);
         assert!((res - cmp).abs() < 1e-5);
     }
 }
