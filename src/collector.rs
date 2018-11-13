@@ -78,7 +78,7 @@ where
     T: AsRef<[V]> + Clone + Default + Eq + Hash,
     V: Clone + Eq + Hash,
 {
-    /// Construct a new `ColumnTupleCollector`.
+    /// Construct a new `TupleCollector`.
     pub fn new() -> Self {
         let tuple_len = T::default().as_ref().len();
 
@@ -113,8 +113,8 @@ where
 
 impl<'a, T, V> Iterator for Iter<'a, T, V>
 where
-    T: AsRef<[V]> + Clone + Eq + Hash,
-    V: Eq + Hash,
+    T: AsMut<[V]> + AsRef<[V]> + Clone + Default + Eq + Hash,
+    V: Clone + Eq + Hash,
 {
     type Item = (&'a [V], usize, f64);
 
@@ -124,12 +124,47 @@ where
                 tuple.as_ref(),
                 &self.collector.event_freqs,
                 &self.collector.event_sums,
-                self.collector.joint_freqs.len(),
-                *tuple_count,
+                &self.collector.joint_freqs,
                 self.collector.joint_sum,
             );
 
             (tuple.as_ref(), *tuple_count, mi)
         })
+    }
+}
+
+pub trait JointFreqs<V> {
+    fn len(&self) -> usize;
+    fn lookup(&self, tuple: &[V]) -> usize;
+}
+
+impl<T, V> JointFreqs<V> for HashMap<T, usize>
+where
+    T: AsMut<[V]> + AsRef<[V]> + Default + Eq + Hash,
+    V: Clone,
+{
+    fn len(&self) -> usize {
+        self.len()
+    }
+
+    fn lookup(&self, slice: &[V]) -> usize {
+        let mut tuple = T::default();
+
+        {
+            let tuple_ref = tuple.as_mut();
+
+            assert!(
+                tuple_ref.len() == slice.as_ref().len(),
+                format!(
+                    "Attempting to add slice of size {} to collector of size {}",
+                    slice.as_ref().len(),
+                    tuple_ref.len()
+                )
+            );
+
+            tuple_ref.clone_from_slice(slice.as_ref());
+        }
+
+        self[&tuple]
     }
 }

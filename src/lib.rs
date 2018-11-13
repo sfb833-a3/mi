@@ -2,7 +2,7 @@ mod bimap;
 pub use bimap::WordMap;
 
 mod collector;
-pub use collector::{Collector, TupleCollector};
+pub use collector::{Collector, JointFreqs, TupleCollector};
 
 mod mi;
 pub use mi::{
