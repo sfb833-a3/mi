@@ -2,34 +2,31 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-/// Trait for smoothing methods.
-pub trait Smoothing<V> {
-    fn prob(&self, tuple: &[V], event_freqs: &[HashMap<V, usize>], event_sums: &[usize]) -> f64;
+pub trait JointProb {
     fn joint_prob(&self, joint_freq: usize, joint_sum: usize, joint_freqs_len: usize) -> f64;
 }
 
-/// Laplace smoothing
-pub struct LaplaceSmoothing<V>
-where
-    V: Eq + Hash,
-{
-    alpha: f64,
-    tuple_value_type: PhantomData<V>,
+/// Trait for smoothing methods.
+pub trait Prob<V> {
+    fn prob(&self, tuple: &[V], event_freqs: &[HashMap<V, usize>], event_sums: &[usize]) -> f64;
 }
 
-impl<V> LaplaceSmoothing<V>
-where
-    V: Eq + Hash,
-{
+pub trait Smoothing<V>: JointProb + Prob<V> {}
+
+impl<T, V> Smoothing<V> for T where T: Prob<V> + JointProb {}
+
+/// Laplace smoothing
+pub struct LaplaceSmoothing {
+    alpha: f64,
+}
+
+impl LaplaceSmoothing where {
     pub fn new(alpha: f64) -> Self {
-        LaplaceSmoothing {
-            alpha,
-            tuple_value_type: PhantomData,
-        }
+        LaplaceSmoothing { alpha }
     }
 }
 
-impl<V> Smoothing<V> for LaplaceSmoothing<V>
+impl<V> Prob<V> for LaplaceSmoothing
 where
     V: Eq + Hash,
 {
@@ -43,31 +40,24 @@ where
                     / (event_sums[idx] + event_freqs[idx].len()) as f64
             }).fold(1.0, |acc, v| acc * v)
     }
+}
+
+impl JointProb for LaplaceSmoothing {
     fn joint_prob(&self, joint_freq: usize, joint_sum: usize, joint_freqs_len: usize) -> f64 {
         (joint_freq as f64 + self.alpha) / (joint_sum as f64 + joint_freqs_len as f64 * self.alpha)
     }
 }
 
 /// Compute probabilities without smoothing
-pub struct RawProb<V>
-where
-    V: Eq + Hash,
-{
-    tuple_value_type: PhantomData<V>,
-}
+pub struct RawProb;
 
-impl<V> RawProb<V>
-where
-    V: Eq + Hash,
-{
+impl RawProb where {
     pub fn new() -> Self {
-        RawProb {
-            tuple_value_type: PhantomData,
-        }
+        RawProb
     }
 }
 
-impl<V> Smoothing<V> for RawProb<V>
+impl<V> Prob<V> for RawProb
 where
     V: Eq + Hash,
 {
@@ -79,6 +69,9 @@ where
             .map(|(idx, v)| event_freqs[idx][v] as f64 / event_sums[idx] as f64)
             .fold(1.0, |acc, v| acc * v)
     }
+}
+
+impl JointProb for RawProb {
     fn joint_prob(&self, joint_freq: usize, joint_sum: usize, _joint_freqs_len: usize) -> f64 {
         joint_freq as f64 / joint_sum as f64
     }
@@ -238,7 +231,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{LaplaceSmoothing, RawProb, Smoothing};
+    use super::{JointProb, LaplaceSmoothing, Prob, RawProb};
     use tests::EVENT_FREQS;
 
     const TUPLE: &[usize] = &[1, 2];
@@ -251,6 +244,7 @@ mod tests {
     pub fn test_laplace() {
         let smoothing = LaplaceSmoothing::new(1_f64);
 
+        let tuple_p = smoothing.joint_prob(JOINT_FREQ, JOINT_SUM, JOINT_FREQS_LEN);
         let indep_p = smoothing.prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
 
         let res = (tuple_p / indep_p).ln();
@@ -260,7 +254,7 @@ mod tests {
 
     #[test]
     pub fn test_rawprob() {
-        let smoothing = RawProb::new(0_f64);
+        let smoothing = RawProb::new();
 
         let tuple_p = smoothing.joint_prob(JOINT_FREQ, JOINT_SUM, JOINT_FREQS_LEN);
         let indep_p = smoothing.prob(TUPLE, &EVENT_FREQS, EVENT_SUMS);
