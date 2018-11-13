@@ -191,12 +191,33 @@ fn sc<V>(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::{LaplaceSmoothing, RawProb, Smoothing};
-    use tests::{EVENT_FREQS, JOINT_FREQS};
 
     const TUPLE: &[usize] = &[1, 2];
     const EVENT_SUMS: &[usize] = &[12, 11];
     const JOINT_SUM: usize = 11;
+
+    lazy_static! {
+        pub static ref EVENT_FREQS: Vec<HashMap<usize, usize>> = vec![
+            hashmap!{
+                1 => 3,
+                3 => 4,
+                5 => 5,
+            },
+            hashmap!{
+                2 => 4,
+                4 => 7,
+            },
+        ];
+        pub static ref JOINT_FREQS: HashMap<[usize; 2], usize> = hashmap! {
+            [1, 1] => 1,
+            [1, 2] => 2,
+            [1, 3] => 1,
+            [1, 4] => 7,
+        };
+    }
 
     #[test]
     pub fn test_laplace() {
