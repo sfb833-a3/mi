@@ -47,13 +47,15 @@ where
 fn measure_from_str<V>(
     measure_str: &str,
     smoothing_str: &str,
-    alpha: f64,
+    alpha: Option<f64>,
 ) -> Box<MutualInformation<V>>
 where
     V: 'static + Eq + Hash,
 {
     match smoothing_str {
-        "laplace" => measure_with_smoothing(measure_str, LaplaceSmoothing::new(alpha)),
+        "laplace" => {
+            measure_with_smoothing(measure_str, LaplaceSmoothing::new(alpha.unwrap_or(1.0)))
+        }
         "none" => measure_with_smoothing(measure_str, RawProb::new()),
         _ => {
             eprintln!("Unknown smoothing method: {}", smoothing_str);
@@ -128,15 +130,10 @@ fn main() {
         process::exit(1)
     }
 
-    let alpha_opt = &matches.opt_str("a").unwrap_or("0".to_owned());
-    if alpha_opt.parse::<f64>().is_err() {
-        eprintln!(
-            "Cannot get smoothing strength of type f64 from {}",
-            alpha_opt
-        );
-        process::exit(1);
-    };
-    let alpha = alpha_opt.parse::<f64>().unwrap_or(0.0_f64);
+    let alpha: Option<f64> = matches.opt_str("a").map(|v| {
+        v.parse()
+            .or_exit(format!("Cannot parse smoothing alpha {}", v), 1)
+    });
 
     let measure = measure_from_str(
         &matches.opt_str("m").unwrap_or("sc".to_owned()),
