@@ -45,7 +45,7 @@ where
             .enumerate()
             .map(|(idx, v)| {
                 (event_freqs[idx][v] as f64 + self.alpha)
-                    / (event_sums[idx] + event_freqs[idx].len()) as f64
+                    / (event_sums[idx] as f64 + event_freqs[idx].len() as f64 * self.alpha)
             }).fold(1.0, |acc, v| acc * v)
     }
 
